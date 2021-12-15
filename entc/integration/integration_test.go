@@ -1923,7 +1923,10 @@ func Scope(t *testing.T, client *ent.Client) {
 	ids = client.User.Query().Where(user.IDEQ(young.ID)).QueryFooChildren().IDsX(ctx)
 	require.ElementsMatch(ids, []int{free.ID, old.ID, admin.ID})
 	// query from entity test
-	young.QueryChildren()
+	ids = young.QueryChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID, old.ID, admin.ID})
+	ids = young.QueryOldChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID, old.ID})
 	// default override test
 	us := ent.UserScope()
 	us.SetDefaultQueryFunction(func(c ent.UserFinder) { c.Where(user.RoleEQ(user.RoleAdmin)) })
