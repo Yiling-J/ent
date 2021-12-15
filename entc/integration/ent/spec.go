@@ -80,6 +80,11 @@ func (s *Spec) QueryCard() *CardQuery {
 	return (&SpecClient{config: s.config}).QueryCard(s)
 }
 
+// QueryCard queries the "card" edge of the Spec entity without scope.
+func (s *Spec) QueryUnscopedCard() *CardQuery {
+	return (&SpecClient{config: s.config}).QueryUnscopedCard(s)
+}
+
 // Update returns a builder for updating this Spec.
 // Note that you need to call Spec.Unwrap() before calling this method if this Spec
 // was returned from a transaction, and the transaction was committed or rolled back.

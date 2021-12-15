@@ -69,6 +69,9 @@ func (User) Edges() []ent.Edge {
 	}
 }
 
+// Scopes of the user
+func (User) Scopes() []string { return []string{"admin", "free", "old", "foo"} }
+
 // UserMixin composes create/update time mixin.
 type UserMixin struct {
 	mixin.Schema

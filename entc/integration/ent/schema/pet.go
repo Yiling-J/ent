@@ -40,7 +40,7 @@ func (Pet) Fields() []ent.Field {
 	}
 }
 
-// Edges of the Dog.
+// Edges of the Pet.
 func (Pet) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("team", User.Type).
@@ -60,3 +60,6 @@ func (Pet) Indexes() []ent.Index {
 			Unique(),
 	}
 }
+
+// Scopes of the Pet.
+func (Pet) Scopes() []string { return []string{"old"} }

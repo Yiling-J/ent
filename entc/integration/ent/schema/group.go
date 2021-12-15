@@ -63,3 +63,6 @@ func (Group) Edges() []ent.Edge {
 		edge.To("info", GroupInfo.Type).Unique().Required(),
 	}
 }
+
+// Scopes of the group.
+func (Group) Scopes() []string { return []string{"active", "inactive"} }

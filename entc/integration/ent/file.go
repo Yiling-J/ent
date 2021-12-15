@@ -189,14 +189,45 @@ func (f *File) QueryOwner() *UserQuery {
 	return (&FileClient{config: f.config}).QueryOwner(f)
 }
 
+// QueryOwner queries the "owner" edge of the File entity without scope.
+func (f *File) QueryUnscopedOwner() *UserQuery {
+	return (&FileClient{config: f.config}).QueryUnscopedOwner(f)
+}
+
+func (f *File) QueryAdminOwner() *UserQuery {
+	return (&FileClient{config: f.config}).QueryAdminOwner(f)
+}
+
+func (f *File) QueryFreeOwner() *UserQuery {
+	return (&FileClient{config: f.config}).QueryFreeOwner(f)
+}
+
+func (f *File) QueryOldOwner() *UserQuery {
+	return (&FileClient{config: f.config}).QueryOldOwner(f)
+}
+
+func (f *File) QueryFooOwner() *UserQuery {
+	return (&FileClient{config: f.config}).QueryFooOwner(f)
+}
+
 // QueryType queries the "type" edge of the File entity.
 func (f *File) QueryType() *FileTypeQuery {
 	return (&FileClient{config: f.config}).QueryType(f)
 }
 
+// QueryType queries the "type" edge of the File entity without scope.
+func (f *File) QueryUnscopedType() *FileTypeQuery {
+	return (&FileClient{config: f.config}).QueryUnscopedType(f)
+}
+
 // QueryField queries the "field" edge of the File entity.
 func (f *File) QueryField() *FieldTypeQuery {
 	return (&FileClient{config: f.config}).QueryField(f)
+}
+
+// QueryField queries the "field" edge of the File entity without scope.
+func (f *File) QueryUnscopedField() *FieldTypeQuery {
+	return (&FileClient{config: f.config}).QueryUnscopedField(f)
 }
 
 // Update returns a builder for updating this File.

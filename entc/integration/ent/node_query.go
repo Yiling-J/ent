@@ -90,11 +90,59 @@ func (nq *NodeQuery) QueryPrev() *NodeQuery {
 		fromU = sqlgraph.SetNeighbors(nq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &nodeQueryWrapper{q: query}
+	nodeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedPrev chains the current query on the "prev" edge without scope.
+func (nq *NodeQuery) QueryUnscopedPrev() *NodeQuery {
+	query := &NodeQuery{config: nq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := nq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := nq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(node.Table, node.FieldID, selector),
+			sqlgraph.To(node.Table, node.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, node.PrevTable, node.PrevColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(nq.driver.Dialect(), step)
+		return fromU, nil
+	}
 	return query
 }
 
 // QueryNext chains the current query on the "next" edge.
 func (nq *NodeQuery) QueryNext() *NodeQuery {
+	query := &NodeQuery{config: nq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := nq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := nq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(node.Table, node.FieldID, selector),
+			sqlgraph.To(node.Table, node.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, node.NextTable, node.NextColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(nq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	w := &nodeQueryWrapper{q: query}
+	nodeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedNext chains the current query on the "next" edge without scope.
+func (nq *NodeQuery) QueryUnscopedNext() *NodeQuery {
 	query := &NodeQuery{config: nq.config}
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := nq.prepareQuery(ctx); err != nil {
@@ -312,6 +360,9 @@ func (nq *NodeQuery) WithPrev(opts ...func(*NodeQuery)) *NodeQuery {
 		opt(query)
 	}
 	nq.withPrev = query
+	w := &nodeQueryWrapper{q: nq.withPrev}
+	scope := &nodeScoper.DefaultScope
+	scope.query(w)
 	return nq
 }
 
@@ -323,6 +374,9 @@ func (nq *NodeQuery) WithNext(opts ...func(*NodeQuery)) *NodeQuery {
 		opt(query)
 	}
 	nq.withNext = query
+	w := &nodeQueryWrapper{q: nq.withNext}
+	scope := &nodeScoper.DefaultScope
+	scope.query(w)
 	return nq
 }
 

@@ -161,9 +161,51 @@ func (pe *Pet) QueryTeam() *UserQuery {
 	return (&PetClient{config: pe.config}).QueryTeam(pe)
 }
 
+// QueryTeam queries the "team" edge of the Pet entity without scope.
+func (pe *Pet) QueryUnscopedTeam() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryUnscopedTeam(pe)
+}
+
+func (pe *Pet) QueryAdminTeam() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryAdminTeam(pe)
+}
+
+func (pe *Pet) QueryFreeTeam() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryFreeTeam(pe)
+}
+
+func (pe *Pet) QueryOldTeam() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryOldTeam(pe)
+}
+
+func (pe *Pet) QueryFooTeam() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryFooTeam(pe)
+}
+
 // QueryOwner queries the "owner" edge of the Pet entity.
 func (pe *Pet) QueryOwner() *UserQuery {
 	return (&PetClient{config: pe.config}).QueryOwner(pe)
+}
+
+// QueryOwner queries the "owner" edge of the Pet entity without scope.
+func (pe *Pet) QueryUnscopedOwner() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryUnscopedOwner(pe)
+}
+
+func (pe *Pet) QueryAdminOwner() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryAdminOwner(pe)
+}
+
+func (pe *Pet) QueryFreeOwner() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryFreeOwner(pe)
+}
+
+func (pe *Pet) QueryOldOwner() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryOldOwner(pe)
+}
+
+func (pe *Pet) QueryFooOwner() *UserQuery {
+	return (&PetClient{config: pe.config}).QueryFooOwner(pe)
 }
 
 // Update returns a builder for updating this Pet.

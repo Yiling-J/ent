@@ -89,6 +89,30 @@ func (ftq *FileTypeQuery) QueryFiles() *FileQuery {
 		fromU = sqlgraph.SetNeighbors(ftq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &fileQueryWrapper{q: query}
+	fileScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFiles chains the current query on the "files" edge without scope.
+func (ftq *FileTypeQuery) QueryUnscopedFiles() *FileQuery {
+	query := &FileQuery{config: ftq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := ftq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := ftq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(filetype.Table, filetype.FieldID, selector),
+			sqlgraph.To(file.Table, file.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, filetype.FilesTable, filetype.FilesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(ftq.driver.Dialect(), step)
+		return fromU, nil
+	}
 	return query
 }
 
@@ -288,6 +312,9 @@ func (ftq *FileTypeQuery) WithFiles(opts ...func(*FileQuery)) *FileTypeQuery {
 		opt(query)
 	}
 	ftq.withFiles = query
+	w := &fileQueryWrapper{q: ftq.withFiles}
+	scope := &fileScoper.DefaultScope
+	scope.query(w)
 	return ftq
 }
 

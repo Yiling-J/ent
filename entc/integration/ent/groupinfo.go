@@ -98,6 +98,19 @@ func (gi *GroupInfo) QueryGroups() *GroupQuery {
 	return (&GroupInfoClient{config: gi.config}).QueryGroups(gi)
 }
 
+// QueryGroups queries the "groups" edge of the GroupInfo entity without scope.
+func (gi *GroupInfo) QueryUnscopedGroups() *GroupQuery {
+	return (&GroupInfoClient{config: gi.config}).QueryUnscopedGroups(gi)
+}
+
+func (gi *GroupInfo) QueryActiveGroups() *GroupQuery {
+	return (&GroupInfoClient{config: gi.config}).QueryActiveGroups(gi)
+}
+
+func (gi *GroupInfo) QueryInactiveGroups() *GroupQuery {
+	return (&GroupInfoClient{config: gi.config}).QueryInactiveGroups(gi)
+}
+
 // Update returns a builder for updating this GroupInfo.
 // Note that you need to call GroupInfo.Unwrap() before calling this method if this GroupInfo
 // was returned from a transaction, and the transaction was committed or rolled back.

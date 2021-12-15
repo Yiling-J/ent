@@ -106,6 +106,11 @@ func (ft *FileType) QueryFiles() *FileQuery {
 	return (&FileTypeClient{config: ft.config}).QueryFiles(ft)
 }
 
+// QueryFiles queries the "files" edge of the FileType entity without scope.
+func (ft *FileType) QueryUnscopedFiles() *FileQuery {
+	return (&FileTypeClient{config: ft.config}).QueryUnscopedFiles(ft)
+}
+
 // Update returns a builder for updating this FileType.
 // Note that you need to call FileType.Unwrap() before calling this method if this FileType
 // was returned from a transaction, and the transaction was committed or rolled back.

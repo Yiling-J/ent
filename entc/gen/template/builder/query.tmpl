@@ -94,11 +94,37 @@ func ({{ $receiver }} *{{ $builder }}) Order(o ...OrderFunc) *{{ $builder }} {
 			{{- end -}}
 			return fromU, nil
 		}
+		w := &{{ $e.Type.Name | lower }}QueryWrapper{q: query}
+		{{ $e.Type.Name | lower }}Scoper.DefaultScope.query(w)
 		return query
 	}
+	// QueryUnscoped{{ pascal $e.Name }} chains the current query on the "{{ $e.Name }}" edge without scope.
+	func ({{ $receiver }} *{{ $builder }}) QueryUnscoped{{ pascal $e.Name }}() *{{ $edge_builder }} {
+		query := &{{ $edge_builder }}{config: {{ $receiver }}.config}
+		query.path = func(ctx context.Context) (fromU {{ $.Storage.Builder }}, err error) {
+			if err := {{ $receiver }}.prepareQuery(ctx); err != nil {
+				return nil, err
+			}
+			{{- with extend $ "Receiver" $receiver "Edge" $e "Ident" "fromU" -}}
+				{{ $tmpl := printf "dialect/%s/query/path" $.Storage }}
+				{{- xtemplate $tmpl . }}
+			{{- end -}}
+			return fromU, nil
+		}
+		return query
+	}
+	{{ range $s := $e.Type.Scopes }}
+	func ({{ $receiver }} *{{ $builder }}) Query{{ pascal $s }}{{ pascal $e.Name }}() *{{ $edge_builder }} {
+	query := {{ $receiver }}.Query{{ pascal $e.Name }}()
+	w := &{{ $e.Type.Name | lower }}QueryWrapper{q: query}
+	scope := &{{ $e.Type.Name | lower }}Scoper.{{ pascal $s }}Scope
+	scope.query(w)
+	return query
+	}
+	{{ end }}
 {{ end }}
 
-// First returns the first {{ $.Name }} entity from the query. 
+// First returns the first {{ $.Name }} entity from the query.
 // Returns a *NotFoundError when no {{ $.Name }} was found.
 func ({{ $receiver }} *{{ $builder }}) First(ctx context.Context) (*{{ $.Name }}, error) {
 	nodes, err := {{ $receiver }}.Limit(1).All(ctx)
@@ -120,7 +146,7 @@ func ({{ $receiver }} *{{ $builder }}) FirstX(ctx context.Context) *{{ $.Name }}
 	return node
 }
 
-// FirstID returns the first {{ $.Name }} ID from the query. 
+// FirstID returns the first {{ $.Name }} ID from the query.
 // Returns a *NotFoundError when no {{ $.Name }} ID was found.
 func ({{ $receiver }} *{{ $builder }}) FirstID(ctx context.Context) (id {{ $.ID.Type }}, err error) {
 	var ids []{{ $.ID.Type }}
@@ -298,8 +324,20 @@ func ({{ $receiver }} *{{ $builder }}) Clone() *{{ $builder }} {
 			opt(query)
 		}
 		{{ $receiver }}.{{ $e.EagerLoadField }} = query
+		w := &{{ $e.Type.Name | lower }}QueryWrapper{q: {{ $receiver }}.{{ $e.EagerLoadField }}}
+		scope := &{{ $e.Type.Name | lower }}Scoper.DefaultScope
+		scope.query(w)
 		return {{ $receiver }}
 	}
+	{{ range $s := $e.Type.Scopes }}
+	func ({{ $receiver }} *{{ $builder }}) With{{ pascal $s }}{{ pascal $e.Name }}(opts ...func(*{{ $ebuilder }})) *{{ $builder }} {
+	query := {{ $receiver }}.With{{ pascal $e.Name }}(opts...)
+	w := &{{ $e.Type.Name | lower }}QueryWrapper{q: {{ $receiver }}.{{ $e.EagerLoadField }}}
+	scope := &{{ $e.Type.Name | lower }}Scoper.{{ pascal $s }}Scope
+	scope.query(w)
+	return query
+	}
+	{{ end }}
 {{- end }}
 
 {{ $groupBuilder := pascal $.Name | printf "%sGroupBy" }}
@@ -436,7 +474,7 @@ func ({{ $groupReceiver }} *{{ $groupBuilder }}) ScanX(ctx context.Context, v in
 
 {{ range $t := primitives }}
 	{{ $plural := pascal $t | plural }}
-	// {{ $plural }} returns list of {{ plural $t }} from group-by. 
+	// {{ $plural }} returns list of {{ plural $t }} from group-by.
 	// It is only allowed when executing a group-by query with one field.
 	func ({{ $groupReceiver }} *{{ $groupBuilder }}) {{ $plural }}(ctx context.Context) ([]{{ $t }}, error) {
 		if len({{ $groupReceiver }}.fields) > 1 {

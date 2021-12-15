@@ -178,9 +178,35 @@ func (gr *Group) QueryFiles() *FileQuery {
 	return (&GroupClient{config: gr.config}).QueryFiles(gr)
 }
 
+// QueryFiles queries the "files" edge of the Group entity without scope.
+func (gr *Group) QueryUnscopedFiles() *FileQuery {
+	return (&GroupClient{config: gr.config}).QueryUnscopedFiles(gr)
+}
+
 // QueryBlocked queries the "blocked" edge of the Group entity.
 func (gr *Group) QueryBlocked() *UserQuery {
 	return (&GroupClient{config: gr.config}).QueryBlocked(gr)
+}
+
+// QueryBlocked queries the "blocked" edge of the Group entity without scope.
+func (gr *Group) QueryUnscopedBlocked() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryUnscopedBlocked(gr)
+}
+
+func (gr *Group) QueryAdminBlocked() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryAdminBlocked(gr)
+}
+
+func (gr *Group) QueryFreeBlocked() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryFreeBlocked(gr)
+}
+
+func (gr *Group) QueryOldBlocked() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryOldBlocked(gr)
+}
+
+func (gr *Group) QueryFooBlocked() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryFooBlocked(gr)
 }
 
 // QueryUsers queries the "users" edge of the Group entity.
@@ -188,9 +214,35 @@ func (gr *Group) QueryUsers() *UserQuery {
 	return (&GroupClient{config: gr.config}).QueryUsers(gr)
 }
 
+// QueryUsers queries the "users" edge of the Group entity without scope.
+func (gr *Group) QueryUnscopedUsers() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryUnscopedUsers(gr)
+}
+
+func (gr *Group) QueryAdminUsers() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryAdminUsers(gr)
+}
+
+func (gr *Group) QueryFreeUsers() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryFreeUsers(gr)
+}
+
+func (gr *Group) QueryOldUsers() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryOldUsers(gr)
+}
+
+func (gr *Group) QueryFooUsers() *UserQuery {
+	return (&GroupClient{config: gr.config}).QueryFooUsers(gr)
+}
+
 // QueryInfo queries the "info" edge of the Group entity.
 func (gr *Group) QueryInfo() *GroupInfoQuery {
 	return (&GroupClient{config: gr.config}).QueryInfo(gr)
+}
+
+// QueryInfo queries the "info" edge of the Group entity without scope.
+func (gr *Group) QueryUnscopedInfo() *GroupInfoQuery {
+	return (&GroupClient{config: gr.config}).QueryUnscopedInfo(gr)
 }
 
 // Update returns a builder for updating this Group.

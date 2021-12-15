@@ -95,6 +95,15 @@ type {{ $.Name }}Edges struct {
 	func ({{ $receiver }} *{{ $.Name }}) {{ $func }}() *{{ $e.Type.QueryName }} {
 		return (&{{ $.Name }}Client{config: {{ $receiver }}.config}).{{ $func }}({{ $receiver }})
 	}
+	// {{ $func }} queries the "{{ $e.Name }}" edge of the {{ $.Name }} entity without scope.
+	func ({{ $receiver }} *{{ $.Name }}) QueryUnscoped{{ $e.StructField }}() *{{ $e.Type.QueryName }} {
+		return (&{{ $.Name }}Client{config: {{ $receiver }}.config}).QueryUnscoped{{ $e.StructField }}({{ $receiver }})
+	}
+	{{ range $s := $e.Type.Scopes }}
+	func ({{ $receiver }} *{{ $.Name }}) Query{{ pascal $s }}{{ $e.StructField }}() *{{ $e.Type.QueryName }} {
+		return (&{{ $.Name }}Client{config: {{ $receiver }}.config}).Query{{ pascal $s }}{{ $e.StructField }}({{ $receiver }})
+	}
+	{{ end }}
 {{ end }}
 
 // Update returns a builder for updating this {{ $.Name }}.

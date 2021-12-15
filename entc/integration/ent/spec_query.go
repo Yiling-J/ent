@@ -89,6 +89,30 @@ func (sq *SpecQuery) QueryCard() *CardQuery {
 		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &cardQueryWrapper{q: query}
+	cardScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedCard chains the current query on the "card" edge without scope.
+func (sq *SpecQuery) QueryUnscopedCard() *CardQuery {
+	query := &CardQuery{config: sq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(spec.Table, spec.FieldID, selector),
+			sqlgraph.To(card.Table, card.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, spec.CardTable, spec.CardPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
 	return query
 }
 
@@ -288,6 +312,9 @@ func (sq *SpecQuery) WithCard(opts ...func(*CardQuery)) *SpecQuery {
 		opt(query)
 	}
 	sq.withCard = query
+	w := &cardQueryWrapper{q: sq.withCard}
+	scope := &cardScoper.DefaultScope
+	scope.query(w)
 	return sq
 }
 

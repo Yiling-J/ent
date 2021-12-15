@@ -95,6 +95,30 @@ func (gq *GroupQuery) QueryFiles() *FileQuery {
 		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &fileQueryWrapper{q: query}
+	fileScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFiles chains the current query on the "files" edge without scope.
+func (gq *GroupQuery) QueryUnscopedFiles() *FileQuery {
+	query := &FileQuery{config: gq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := gq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := gq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, selector),
+			sqlgraph.To(file.Table, file.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.FilesTable, group.FilesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
+		return fromU, nil
+	}
 	return query
 }
 
@@ -117,6 +141,62 @@ func (gq *GroupQuery) QueryBlocked() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedBlocked chains the current query on the "blocked" edge without scope.
+func (gq *GroupQuery) QueryUnscopedBlocked() *UserQuery {
+	query := &UserQuery{config: gq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := gq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := gq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.BlockedTable, group.BlockedColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (gq *GroupQuery) QueryAdminBlocked() *UserQuery {
+	query := gq.QueryBlocked()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) QueryFreeBlocked() *UserQuery {
+	query := gq.QueryBlocked()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) QueryOldBlocked() *UserQuery {
+	query := gq.QueryBlocked()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) QueryFooBlocked() *UserQuery {
+	query := gq.QueryBlocked()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -139,11 +219,91 @@ func (gq *GroupQuery) QueryUsers() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedUsers chains the current query on the "users" edge without scope.
+func (gq *GroupQuery) QueryUnscopedUsers() *UserQuery {
+	query := &UserQuery{config: gq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := gq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := gq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, group.UsersTable, group.UsersPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (gq *GroupQuery) QueryAdminUsers() *UserQuery {
+	query := gq.QueryUsers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) QueryFreeUsers() *UserQuery {
+	query := gq.QueryUsers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) QueryOldUsers() *UserQuery {
+	query := gq.QueryUsers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) QueryFooUsers() *UserQuery {
+	query := gq.QueryUsers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
 // QueryInfo chains the current query on the "info" edge.
 func (gq *GroupQuery) QueryInfo() *GroupInfoQuery {
+	query := &GroupInfoQuery{config: gq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := gq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := gq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, selector),
+			sqlgraph.To(groupinfo.Table, groupinfo.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, group.InfoTable, group.InfoColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	w := &groupinfoQueryWrapper{q: query}
+	groupinfoScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedInfo chains the current query on the "info" edge without scope.
+func (gq *GroupQuery) QueryUnscopedInfo() *GroupInfoQuery {
 	query := &GroupInfoQuery{config: gq.config}
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := gq.prepareQuery(ctx); err != nil {
@@ -363,6 +523,9 @@ func (gq *GroupQuery) WithFiles(opts ...func(*FileQuery)) *GroupQuery {
 		opt(query)
 	}
 	gq.withFiles = query
+	w := &fileQueryWrapper{q: gq.withFiles}
+	scope := &fileScoper.DefaultScope
+	scope.query(w)
 	return gq
 }
 
@@ -374,7 +537,42 @@ func (gq *GroupQuery) WithBlocked(opts ...func(*UserQuery)) *GroupQuery {
 		opt(query)
 	}
 	gq.withBlocked = query
+	w := &userQueryWrapper{q: gq.withBlocked}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return gq
+}
+
+func (gq *GroupQuery) WithAdminBlocked(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithBlocked(opts...)
+	w := &userQueryWrapper{q: gq.withBlocked}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) WithFreeBlocked(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithBlocked(opts...)
+	w := &userQueryWrapper{q: gq.withBlocked}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) WithOldBlocked(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithBlocked(opts...)
+	w := &userQueryWrapper{q: gq.withBlocked}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) WithFooBlocked(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithBlocked(opts...)
+	w := &userQueryWrapper{q: gq.withBlocked}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithUsers tells the query-builder to eager-load the nodes that are connected to
@@ -385,7 +583,42 @@ func (gq *GroupQuery) WithUsers(opts ...func(*UserQuery)) *GroupQuery {
 		opt(query)
 	}
 	gq.withUsers = query
+	w := &userQueryWrapper{q: gq.withUsers}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return gq
+}
+
+func (gq *GroupQuery) WithAdminUsers(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithUsers(opts...)
+	w := &userQueryWrapper{q: gq.withUsers}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) WithFreeUsers(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithUsers(opts...)
+	w := &userQueryWrapper{q: gq.withUsers}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) WithOldUsers(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithUsers(opts...)
+	w := &userQueryWrapper{q: gq.withUsers}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (gq *GroupQuery) WithFooUsers(opts ...func(*UserQuery)) *GroupQuery {
+	query := gq.WithUsers(opts...)
+	w := &userQueryWrapper{q: gq.withUsers}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithInfo tells the query-builder to eager-load the nodes that are connected to
@@ -396,6 +629,9 @@ func (gq *GroupQuery) WithInfo(opts ...func(*GroupInfoQuery)) *GroupQuery {
 		opt(query)
 	}
 	gq.withInfo = query
+	w := &groupinfoQueryWrapper{q: gq.withInfo}
+	scope := &groupinfoScoper.DefaultScope
+	scope.query(w)
 	return gq
 }
 

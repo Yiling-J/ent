@@ -119,9 +119,19 @@ func (n *Node) QueryPrev() *NodeQuery {
 	return (&NodeClient{config: n.config}).QueryPrev(n)
 }
 
+// QueryPrev queries the "prev" edge of the Node entity without scope.
+func (n *Node) QueryUnscopedPrev() *NodeQuery {
+	return (&NodeClient{config: n.config}).QueryUnscopedPrev(n)
+}
+
 // QueryNext queries the "next" edge of the Node entity.
 func (n *Node) QueryNext() *NodeQuery {
 	return (&NodeClient{config: n.config}).QueryNext(n)
+}
+
+// QueryNext queries the "next" edge of the Node entity without scope.
+func (n *Node) QueryUnscopedNext() *NodeQuery {
+	return (&NodeClient{config: n.config}).QueryUnscopedNext(n)
 }
 
 // Update returns a builder for updating this Node.

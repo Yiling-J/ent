@@ -158,9 +158,35 @@ func (c *Card) QueryOwner() *UserQuery {
 	return (&CardClient{config: c.config}).QueryOwner(c)
 }
 
+// QueryOwner queries the "owner" edge of the Card entity without scope.
+func (c *Card) QueryUnscopedOwner() *UserQuery {
+	return (&CardClient{config: c.config}).QueryUnscopedOwner(c)
+}
+
+func (c *Card) QueryAdminOwner() *UserQuery {
+	return (&CardClient{config: c.config}).QueryAdminOwner(c)
+}
+
+func (c *Card) QueryFreeOwner() *UserQuery {
+	return (&CardClient{config: c.config}).QueryFreeOwner(c)
+}
+
+func (c *Card) QueryOldOwner() *UserQuery {
+	return (&CardClient{config: c.config}).QueryOldOwner(c)
+}
+
+func (c *Card) QueryFooOwner() *UserQuery {
+	return (&CardClient{config: c.config}).QueryFooOwner(c)
+}
+
 // QuerySpec queries the "spec" edge of the Card entity.
 func (c *Card) QuerySpec() *SpecQuery {
 	return (&CardClient{config: c.config}).QuerySpec(c)
+}
+
+// QuerySpec queries the "spec" edge of the Card entity without scope.
+func (c *Card) QueryUnscopedSpec() *SpecQuery {
+	return (&CardClient{config: c.config}).QueryUnscopedSpec(c)
 }
 
 // Update returns a builder for updating this Card.

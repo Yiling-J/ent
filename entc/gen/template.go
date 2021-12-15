@@ -104,6 +104,10 @@ var (
 			},
 		},
 		{
+			Name:   "scope",
+			Format: "scope.go",
+		},
+		{
 			Name:   "context",
 			Format: "context.go",
 		},

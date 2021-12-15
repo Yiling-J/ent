@@ -90,6 +90,62 @@ func (pq *PetQuery) QueryTeam() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedTeam chains the current query on the "team" edge without scope.
+func (pq *PetQuery) QueryUnscopedTeam() *UserQuery {
+	query := &UserQuery{config: pq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := pq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := pq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(pet.Table, pet.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, pet.TeamTable, pet.TeamColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (pq *PetQuery) QueryAdminTeam() *UserQuery {
+	query := pq.QueryTeam()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) QueryFreeTeam() *UserQuery {
+	query := pq.QueryTeam()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) QueryOldTeam() *UserQuery {
+	query := pq.QueryTeam()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) QueryFooTeam() *UserQuery {
+	query := pq.QueryTeam()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -112,6 +168,62 @@ func (pq *PetQuery) QueryOwner() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedOwner chains the current query on the "owner" edge without scope.
+func (pq *PetQuery) QueryUnscopedOwner() *UserQuery {
+	query := &UserQuery{config: pq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := pq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := pq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(pet.Table, pet.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, pet.OwnerTable, pet.OwnerColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (pq *PetQuery) QueryAdminOwner() *UserQuery {
+	query := pq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) QueryFreeOwner() *UserQuery {
+	query := pq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) QueryOldOwner() *UserQuery {
+	query := pq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) QueryFooOwner() *UserQuery {
+	query := pq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -312,7 +424,42 @@ func (pq *PetQuery) WithTeam(opts ...func(*UserQuery)) *PetQuery {
 		opt(query)
 	}
 	pq.withTeam = query
+	w := &userQueryWrapper{q: pq.withTeam}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return pq
+}
+
+func (pq *PetQuery) WithAdminTeam(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithTeam(opts...)
+	w := &userQueryWrapper{q: pq.withTeam}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) WithFreeTeam(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithTeam(opts...)
+	w := &userQueryWrapper{q: pq.withTeam}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) WithOldTeam(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithTeam(opts...)
+	w := &userQueryWrapper{q: pq.withTeam}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) WithFooTeam(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithTeam(opts...)
+	w := &userQueryWrapper{q: pq.withTeam}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithOwner tells the query-builder to eager-load the nodes that are connected to
@@ -323,7 +470,42 @@ func (pq *PetQuery) WithOwner(opts ...func(*UserQuery)) *PetQuery {
 		opt(query)
 	}
 	pq.withOwner = query
+	w := &userQueryWrapper{q: pq.withOwner}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return pq
+}
+
+func (pq *PetQuery) WithAdminOwner(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithOwner(opts...)
+	w := &userQueryWrapper{q: pq.withOwner}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) WithFreeOwner(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithOwner(opts...)
+	w := &userQueryWrapper{q: pq.withOwner}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) WithOldOwner(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithOwner(opts...)
+	w := &userQueryWrapper{q: pq.withOwner}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (pq *PetQuery) WithFooOwner(opts ...func(*UserQuery)) *PetQuery {
+	query := pq.WithOwner(opts...)
+	w := &userQueryWrapper{q: pq.withOwner}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.

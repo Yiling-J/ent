@@ -141,9 +141,11 @@ func (c *Client) Use(hooks ...Hook) {
 
 {{ range $n := $.Nodes }}
 {{ $client := print $n.Name "Client" }}
+{{ $nameLower := $n.Name | lower }}
 // {{ $client }} is a client for the {{ $n.Name }} schema.
 type {{ $client }} struct {
 	config
+	scope *{{ $nameLower }}Scope
 }
 
 {{ $rec := $n.Receiver }}{{ if eq $rec "c" }}{{ $rec = printf "%.2s" $n.Name | lower }}{{ end }}
@@ -152,6 +154,18 @@ type {{ $client }} struct {
 func New{{ $client }}(c config) *{{ $client }} {
 	return &{{ $client }}{config: c}
 }
+
+// Unscoped return a client without scope
+func (c *{{ $client }}) Unscoped() *{{ $client }} {
+	return &{{ $client }}{config: c.config, scope: &{{ $nameLower }}Scoper.noneScope}
+}
+
+{{- range $s := $n.Scopes }}
+{{ $name := pascal $s }}
+func (c *{{ $client }}) {{ $name }}() *{{ $client }} {
+	return &{{ $client }}{config: c.config, scope: &{{ $nameLower }}Scoper.{{ $name }}Scope}
+}
+{{- end }}
 
 // Use adds a list of mutation hooks to the hooks stack.
 // A call to `Use(f, g, h)` equals to `{{ $n.Package }}.Hooks(f(g(h())))`.
@@ -173,24 +187,40 @@ func (c *{{ $client }}) CreateBulk(builders ...*{{ $n.CreateName }}) *{{ $n.Crea
 // Update returns an update builder for {{ $n.Name }}.
 func (c *{{ $client }}) Update() *{{ $n.UpdateName }} {
 	mutation := new{{ $n.MutationName }}(c.config, OpUpdate)
+	w := &{{ $nameLower }}UpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {scope = &{{ $nameLower }}Scoper.DefaultScope}
+	scope.query(w)
 	return &{{ $n.UpdateName }}{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *{{ $client }}) UpdateOne({{ $rec }} *{{ $n.Name }}) *{{ $n.UpdateOneName }} {
 	mutation := new{{ $n.MutationName }}(c.config, OpUpdateOne, {{ print "with" $n.Name }}({{ $rec }}))
+	w := &{{ $nameLower }}UpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {scope = &{{ $nameLower }}Scoper.DefaultScope}
+	scope.query(w)
 	return &{{ $n.UpdateOneName }}{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *{{ $client }}) UpdateOneID(id {{ $n.ID.Type }}) *{{ $n.UpdateOneName }} {
 	mutation := new{{ $n.MutationName }}(c.config, OpUpdateOne, {{ print "with" $n.Name "ID" }}(id))
+	w := &{{ $nameLower }}UpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {scope = &{{ $nameLower }}Scoper.DefaultScope}
+	scope.query(w)
 	return &{{ $n.UpdateOneName }}{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for {{ $n.Name }}.
 func (c *{{ $client }}) Delete() *{{ $n.DeleteName }} {
 	mutation := new{{ $n.MutationName }}(c.config, OpDelete)
+	w := &{{ $nameLower }}UpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {scope = &{{ $nameLower }}Scoper.DefaultScope}
+	scope.query(w)
 	return &{{ $n.DeleteName }}{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -209,7 +239,7 @@ func (c *{{ $client }}) DeleteOneID(id {{ $n.ID.Type }}) *{{ $n.DeleteOneName }}
 
 // Query returns a query builder for {{ $n.Name }}.
 func (c *{{ $client }}) Query() *{{ $n.QueryName }} {
-	return &{{ $n.QueryName }}{
+	query := &{{ $n.QueryName }}{
 		config: c.config,
 		{{- with $tmpls := matchTemplate (printf "dialect/%s/query/fields/init/*" $.Storage) }}
 			{{- range $tmpl := $tmpls }}
@@ -217,6 +247,12 @@ func (c *{{ $client }}) Query() *{{ $n.QueryName }} {
 			{{- end }}
 		{{- end }}
 	}
+	w := &{{ $nameLower }}QueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		{{ $nameLower }}Scoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {c.scope.query(w)}
+	return query
 }
 
 // Get returns a {{ $n.Name }} entity by its id.
@@ -246,8 +282,31 @@ func (c *{{ $client }}) Query{{ pascal $e.Name }}({{ $arg }} *{{ $n.Name }}) *{{
 		{{- end -}}
 		return fromV, nil
 	}
+	w := &{{ $e.Type.Name | lower }}QueryWrapper{q: query}
+	{{ $e.Type.Name | lower }}Scoper.DefaultScope.query(w)
 	return query
 }
+// QueryUnscoped{{ pascal $e.Name }} queries the {{ $e.Name }} edge of a {{ $n.Name }} without scope.
+func (c *{{ $client }}) QueryUnscoped{{ pascal $e.Name }}({{ $arg }} *{{ $n.Name }}) *{{ $builder }} {
+	query := &{{ $builder }}{config: c.config}
+	query.path = func(ctx context.Context) (fromV {{ $.Storage.Builder }}, _ error) {
+		{{- with extend $n "Receiver" $arg "Edge" $e "Ident" "fromV" }}
+			{{ $tmpl := printf "dialect/%s/query/from" $.Storage }}
+			{{- xtemplate $tmpl . -}}
+		{{- end -}}
+		return fromV, nil
+	}
+	return query
+}
+{{ range $s := $e.Type.Scopes }}
+func (c *{{ $client }}) Query{{ pascal $s }}{{ pascal $e.Name }}({{ $arg }} *{{ $n.Name }}) *{{ $builder }} {
+	query := c.Query{{ pascal $e.Name }}({{ $arg }})
+	w := &{{ $e.Type.Name | lower }}QueryWrapper{q: query}
+	scope := &{{ $e.Type.Name | lower }}Scoper.{{ pascal $s }}Scope
+	scope.query(w)
+	return query
+}
+{{ end }}
 {{ end }}
 
 // Hooks returns the client hooks.

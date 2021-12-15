@@ -50,6 +50,8 @@ type (
 		// Annotations that were defined for the field in the schema.
 		// The mapping is from the Annotation.Name() to a JSON decoded object.
 		Annotations Annotations
+		// Scopes are the custom scopes for this type.
+		Scopes []string
 	}
 
 	// Field holds the information of a type field used for the templates.
@@ -210,6 +212,7 @@ func NewType(c *Config, schema *load.Schema) (*Type, error) {
 		Fields:      make([]*Field, 0, len(schema.Fields)),
 		fields:      make(map[string]*Field, len(schema.Fields)),
 		foreignKeys: make(map[string]struct{}),
+		Scopes:      schema.Scopes,
 	}
 	if err := ValidSchemaName(typ.Name); err != nil {
 		return nil, err

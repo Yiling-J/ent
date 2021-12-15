@@ -226,11 +226,17 @@ func (c *Client) Dialect() string {
 // CardClient is a client for the Card schema.
 type CardClient struct {
 	config
+	scope *cardScope
 }
 
 // NewCardClient returns a client for the Card from the given config.
 func NewCardClient(c config) *CardClient {
 	return &CardClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *CardClient) Unscoped() *CardClient {
+	return &CardClient{config: c.config, scope: &cardScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -253,24 +259,48 @@ func (c *CardClient) CreateBulk(builders ...*CardCreate) *CardCreateBulk {
 // Update returns an update builder for Card.
 func (c *CardClient) Update() *CardUpdate {
 	mutation := newCardMutation(c.config, OpUpdate)
+	w := &cardUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &cardScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CardUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *CardClient) UpdateOne(ca *Card) *CardUpdateOne {
 	mutation := newCardMutation(c.config, OpUpdateOne, withCard(ca))
+	w := &cardUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &cardScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *CardClient) UpdateOneID(id int) *CardUpdateOne {
 	mutation := newCardMutation(c.config, OpUpdateOne, withCardID(id))
+	w := &cardUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &cardScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Card.
 func (c *CardClient) Delete() *CardDelete {
 	mutation := newCardMutation(c.config, OpDelete)
+	w := &cardUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &cardScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CardDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -289,9 +319,17 @@ func (c *CardClient) DeleteOneID(id int) *CardDeleteOne {
 
 // Query returns a query builder for Card.
 func (c *CardClient) Query() *CardQuery {
-	return &CardQuery{
+	query := &CardQuery{
 		config: c.config,
 	}
+	w := &cardQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		cardScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Card entity by its id.
@@ -321,11 +359,79 @@ func (c *CardClient) QueryOwner(ca *Card) *UserQuery {
 		fromV = sqlgraph.Neighbors(ca.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedOwner queries the owner edge of a Card without scope.
+func (c *CardClient) QueryUnscopedOwner(ca *Card) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := ca.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(card.Table, card.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, card.OwnerTable, card.OwnerColumn),
+		)
+		fromV = sqlgraph.Neighbors(ca.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *CardClient) QueryAdminOwner(ca *Card) *UserQuery {
+	query := c.QueryOwner(ca)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *CardClient) QueryFreeOwner(ca *Card) *UserQuery {
+	query := c.QueryOwner(ca)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *CardClient) QueryOldOwner(ca *Card) *UserQuery {
+	query := c.QueryOwner(ca)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *CardClient) QueryFooOwner(ca *Card) *UserQuery {
+	query := c.QueryOwner(ca)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
 // QuerySpec queries the spec edge of a Card.
 func (c *CardClient) QuerySpec(ca *Card) *SpecQuery {
+	query := &SpecQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := ca.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(card.Table, card.FieldID, id),
+			sqlgraph.To(spec.Table, spec.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, card.SpecTable, card.SpecPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(ca.driver.Dialect(), step)
+		return fromV, nil
+	}
+	w := &specQueryWrapper{q: query}
+	specScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedSpec queries the spec edge of a Card without scope.
+func (c *CardClient) QueryUnscopedSpec(ca *Card) *SpecQuery {
 	query := &SpecQuery{config: c.config}
 	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
 		id := ca.ID
@@ -348,11 +454,17 @@ func (c *CardClient) Hooks() []Hook {
 // CommentClient is a client for the Comment schema.
 type CommentClient struct {
 	config
+	scope *commentScope
 }
 
 // NewCommentClient returns a client for the Comment from the given config.
 func NewCommentClient(c config) *CommentClient {
 	return &CommentClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *CommentClient) Unscoped() *CommentClient {
+	return &CommentClient{config: c.config, scope: &commentScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -375,24 +487,48 @@ func (c *CommentClient) CreateBulk(builders ...*CommentCreate) *CommentCreateBul
 // Update returns an update builder for Comment.
 func (c *CommentClient) Update() *CommentUpdate {
 	mutation := newCommentMutation(c.config, OpUpdate)
+	w := &commentUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &commentScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CommentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *CommentClient) UpdateOne(co *Comment) *CommentUpdateOne {
 	mutation := newCommentMutation(c.config, OpUpdateOne, withComment(co))
+	w := &commentUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &commentScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CommentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *CommentClient) UpdateOneID(id int) *CommentUpdateOne {
 	mutation := newCommentMutation(c.config, OpUpdateOne, withCommentID(id))
+	w := &commentUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &commentScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CommentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Comment.
 func (c *CommentClient) Delete() *CommentDelete {
 	mutation := newCommentMutation(c.config, OpDelete)
+	w := &commentUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &commentScoper.DefaultScope
+	}
+	scope.query(w)
 	return &CommentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -411,9 +547,17 @@ func (c *CommentClient) DeleteOneID(id int) *CommentDeleteOne {
 
 // Query returns a query builder for Comment.
 func (c *CommentClient) Query() *CommentQuery {
-	return &CommentQuery{
+	query := &CommentQuery{
 		config: c.config,
 	}
+	w := &commentQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		commentScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Comment entity by its id.
@@ -438,11 +582,17 @@ func (c *CommentClient) Hooks() []Hook {
 // FieldTypeClient is a client for the FieldType schema.
 type FieldTypeClient struct {
 	config
+	scope *fieldtypeScope
 }
 
 // NewFieldTypeClient returns a client for the FieldType from the given config.
 func NewFieldTypeClient(c config) *FieldTypeClient {
 	return &FieldTypeClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *FieldTypeClient) Unscoped() *FieldTypeClient {
+	return &FieldTypeClient{config: c.config, scope: &fieldtypeScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -465,24 +615,48 @@ func (c *FieldTypeClient) CreateBulk(builders ...*FieldTypeCreate) *FieldTypeCre
 // Update returns an update builder for FieldType.
 func (c *FieldTypeClient) Update() *FieldTypeUpdate {
 	mutation := newFieldTypeMutation(c.config, OpUpdate)
+	w := &fieldtypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fieldtypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FieldTypeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *FieldTypeClient) UpdateOne(ft *FieldType) *FieldTypeUpdateOne {
 	mutation := newFieldTypeMutation(c.config, OpUpdateOne, withFieldType(ft))
+	w := &fieldtypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fieldtypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FieldTypeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *FieldTypeClient) UpdateOneID(id int) *FieldTypeUpdateOne {
 	mutation := newFieldTypeMutation(c.config, OpUpdateOne, withFieldTypeID(id))
+	w := &fieldtypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fieldtypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FieldTypeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for FieldType.
 func (c *FieldTypeClient) Delete() *FieldTypeDelete {
 	mutation := newFieldTypeMutation(c.config, OpDelete)
+	w := &fieldtypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fieldtypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FieldTypeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -501,9 +675,17 @@ func (c *FieldTypeClient) DeleteOneID(id int) *FieldTypeDeleteOne {
 
 // Query returns a query builder for FieldType.
 func (c *FieldTypeClient) Query() *FieldTypeQuery {
-	return &FieldTypeQuery{
+	query := &FieldTypeQuery{
 		config: c.config,
 	}
+	w := &fieldtypeQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		fieldtypeScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a FieldType entity by its id.
@@ -528,11 +710,17 @@ func (c *FieldTypeClient) Hooks() []Hook {
 // FileClient is a client for the File schema.
 type FileClient struct {
 	config
+	scope *fileScope
 }
 
 // NewFileClient returns a client for the File from the given config.
 func NewFileClient(c config) *FileClient {
 	return &FileClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *FileClient) Unscoped() *FileClient {
+	return &FileClient{config: c.config, scope: &fileScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -555,24 +743,48 @@ func (c *FileClient) CreateBulk(builders ...*FileCreate) *FileCreateBulk {
 // Update returns an update builder for File.
 func (c *FileClient) Update() *FileUpdate {
 	mutation := newFileMutation(c.config, OpUpdate)
+	w := &fileUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fileScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *FileClient) UpdateOne(f *File) *FileUpdateOne {
 	mutation := newFileMutation(c.config, OpUpdateOne, withFile(f))
+	w := &fileUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fileScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *FileClient) UpdateOneID(id int) *FileUpdateOne {
 	mutation := newFileMutation(c.config, OpUpdateOne, withFileID(id))
+	w := &fileUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fileScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for File.
 func (c *FileClient) Delete() *FileDelete {
 	mutation := newFileMutation(c.config, OpDelete)
+	w := &fileUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &fileScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -591,9 +803,17 @@ func (c *FileClient) DeleteOneID(id int) *FileDeleteOne {
 
 // Query returns a query builder for File.
 func (c *FileClient) Query() *FileQuery {
-	return &FileQuery{
+	query := &FileQuery{
 		config: c.config,
 	}
+	w := &fileQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		fileScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a File entity by its id.
@@ -623,11 +843,79 @@ func (c *FileClient) QueryOwner(f *File) *UserQuery {
 		fromV = sqlgraph.Neighbors(f.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedOwner queries the owner edge of a File without scope.
+func (c *FileClient) QueryUnscopedOwner(f *File) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := f.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(file.Table, file.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, file.OwnerTable, file.OwnerColumn),
+		)
+		fromV = sqlgraph.Neighbors(f.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *FileClient) QueryAdminOwner(f *File) *UserQuery {
+	query := c.QueryOwner(f)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *FileClient) QueryFreeOwner(f *File) *UserQuery {
+	query := c.QueryOwner(f)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *FileClient) QueryOldOwner(f *File) *UserQuery {
+	query := c.QueryOwner(f)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *FileClient) QueryFooOwner(f *File) *UserQuery {
+	query := c.QueryOwner(f)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
 // QueryType queries the type edge of a File.
 func (c *FileClient) QueryType(f *File) *FileTypeQuery {
+	query := &FileTypeQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := f.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(file.Table, file.FieldID, id),
+			sqlgraph.To(filetype.Table, filetype.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, file.TypeTable, file.TypeColumn),
+		)
+		fromV = sqlgraph.Neighbors(f.driver.Dialect(), step)
+		return fromV, nil
+	}
+	w := &filetypeQueryWrapper{q: query}
+	filetypeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedType queries the type edge of a File without scope.
+func (c *FileClient) QueryUnscopedType(f *File) *FileTypeQuery {
 	query := &FileTypeQuery{config: c.config}
 	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
 		id := f.ID
@@ -655,6 +943,24 @@ func (c *FileClient) QueryField(f *File) *FieldTypeQuery {
 		fromV = sqlgraph.Neighbors(f.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &fieldtypeQueryWrapper{q: query}
+	fieldtypeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedField queries the field edge of a File without scope.
+func (c *FileClient) QueryUnscopedField(f *File) *FieldTypeQuery {
+	query := &FieldTypeQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := f.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(file.Table, file.FieldID, id),
+			sqlgraph.To(fieldtype.Table, fieldtype.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, file.FieldTable, file.FieldColumn),
+		)
+		fromV = sqlgraph.Neighbors(f.driver.Dialect(), step)
+		return fromV, nil
+	}
 	return query
 }
 
@@ -666,11 +972,17 @@ func (c *FileClient) Hooks() []Hook {
 // FileTypeClient is a client for the FileType schema.
 type FileTypeClient struct {
 	config
+	scope *filetypeScope
 }
 
 // NewFileTypeClient returns a client for the FileType from the given config.
 func NewFileTypeClient(c config) *FileTypeClient {
 	return &FileTypeClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *FileTypeClient) Unscoped() *FileTypeClient {
+	return &FileTypeClient{config: c.config, scope: &filetypeScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -693,24 +1005,48 @@ func (c *FileTypeClient) CreateBulk(builders ...*FileTypeCreate) *FileTypeCreate
 // Update returns an update builder for FileType.
 func (c *FileTypeClient) Update() *FileTypeUpdate {
 	mutation := newFileTypeMutation(c.config, OpUpdate)
+	w := &filetypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &filetypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileTypeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *FileTypeClient) UpdateOne(ft *FileType) *FileTypeUpdateOne {
 	mutation := newFileTypeMutation(c.config, OpUpdateOne, withFileType(ft))
+	w := &filetypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &filetypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileTypeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *FileTypeClient) UpdateOneID(id int) *FileTypeUpdateOne {
 	mutation := newFileTypeMutation(c.config, OpUpdateOne, withFileTypeID(id))
+	w := &filetypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &filetypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileTypeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for FileType.
 func (c *FileTypeClient) Delete() *FileTypeDelete {
 	mutation := newFileTypeMutation(c.config, OpDelete)
+	w := &filetypeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &filetypeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &FileTypeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -729,9 +1065,17 @@ func (c *FileTypeClient) DeleteOneID(id int) *FileTypeDeleteOne {
 
 // Query returns a query builder for FileType.
 func (c *FileTypeClient) Query() *FileTypeQuery {
-	return &FileTypeQuery{
+	query := &FileTypeQuery{
 		config: c.config,
 	}
+	w := &filetypeQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		filetypeScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a FileType entity by its id.
@@ -761,6 +1105,24 @@ func (c *FileTypeClient) QueryFiles(ft *FileType) *FileQuery {
 		fromV = sqlgraph.Neighbors(ft.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &fileQueryWrapper{q: query}
+	fileScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFiles queries the files edge of a FileType without scope.
+func (c *FileTypeClient) QueryUnscopedFiles(ft *FileType) *FileQuery {
+	query := &FileQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := ft.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(filetype.Table, filetype.FieldID, id),
+			sqlgraph.To(file.Table, file.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, filetype.FilesTable, filetype.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(ft.driver.Dialect(), step)
+		return fromV, nil
+	}
 	return query
 }
 
@@ -772,11 +1134,17 @@ func (c *FileTypeClient) Hooks() []Hook {
 // GoodsClient is a client for the Goods schema.
 type GoodsClient struct {
 	config
+	scope *goodsScope
 }
 
 // NewGoodsClient returns a client for the Goods from the given config.
 func NewGoodsClient(c config) *GoodsClient {
 	return &GoodsClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *GoodsClient) Unscoped() *GoodsClient {
+	return &GoodsClient{config: c.config, scope: &goodsScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -799,24 +1167,48 @@ func (c *GoodsClient) CreateBulk(builders ...*GoodsCreate) *GoodsCreateBulk {
 // Update returns an update builder for Goods.
 func (c *GoodsClient) Update() *GoodsUpdate {
 	mutation := newGoodsMutation(c.config, OpUpdate)
+	w := &goodsUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &goodsScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GoodsUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *GoodsClient) UpdateOne(_go *Goods) *GoodsUpdateOne {
 	mutation := newGoodsMutation(c.config, OpUpdateOne, withGoods(_go))
+	w := &goodsUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &goodsScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GoodsUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *GoodsClient) UpdateOneID(id int) *GoodsUpdateOne {
 	mutation := newGoodsMutation(c.config, OpUpdateOne, withGoodsID(id))
+	w := &goodsUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &goodsScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GoodsUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Goods.
 func (c *GoodsClient) Delete() *GoodsDelete {
 	mutation := newGoodsMutation(c.config, OpDelete)
+	w := &goodsUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &goodsScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GoodsDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -835,9 +1227,17 @@ func (c *GoodsClient) DeleteOneID(id int) *GoodsDeleteOne {
 
 // Query returns a query builder for Goods.
 func (c *GoodsClient) Query() *GoodsQuery {
-	return &GoodsQuery{
+	query := &GoodsQuery{
 		config: c.config,
 	}
+	w := &goodsQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		goodsScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Goods entity by its id.
@@ -862,11 +1262,25 @@ func (c *GoodsClient) Hooks() []Hook {
 // GroupClient is a client for the Group schema.
 type GroupClient struct {
 	config
+	scope *groupScope
 }
 
 // NewGroupClient returns a client for the Group from the given config.
 func NewGroupClient(c config) *GroupClient {
 	return &GroupClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *GroupClient) Unscoped() *GroupClient {
+	return &GroupClient{config: c.config, scope: &groupScoper.noneScope}
+}
+
+func (c *GroupClient) Active() *GroupClient {
+	return &GroupClient{config: c.config, scope: &groupScoper.ActiveScope}
+}
+
+func (c *GroupClient) Inactive() *GroupClient {
+	return &GroupClient{config: c.config, scope: &groupScoper.InactiveScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -889,24 +1303,48 @@ func (c *GroupClient) CreateBulk(builders ...*GroupCreate) *GroupCreateBulk {
 // Update returns an update builder for Group.
 func (c *GroupClient) Update() *GroupUpdate {
 	mutation := newGroupMutation(c.config, OpUpdate)
+	w := &groupUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *GroupClient) UpdateOne(gr *Group) *GroupUpdateOne {
 	mutation := newGroupMutation(c.config, OpUpdateOne, withGroup(gr))
+	w := &groupUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *GroupClient) UpdateOneID(id int) *GroupUpdateOne {
 	mutation := newGroupMutation(c.config, OpUpdateOne, withGroupID(id))
+	w := &groupUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Group.
 func (c *GroupClient) Delete() *GroupDelete {
 	mutation := newGroupMutation(c.config, OpDelete)
+	w := &groupUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -925,9 +1363,17 @@ func (c *GroupClient) DeleteOneID(id int) *GroupDeleteOne {
 
 // Query returns a query builder for Group.
 func (c *GroupClient) Query() *GroupQuery {
-	return &GroupQuery{
+	query := &GroupQuery{
 		config: c.config,
 	}
+	w := &groupQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		groupScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Group entity by its id.
@@ -957,6 +1403,24 @@ func (c *GroupClient) QueryFiles(gr *Group) *FileQuery {
 		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &fileQueryWrapper{q: query}
+	fileScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFiles queries the files edge of a Group without scope.
+func (c *GroupClient) QueryUnscopedFiles(gr *Group) *FileQuery {
+	query := &FileQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := gr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(file.Table, file.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.FilesTable, group.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
+		return fromV, nil
+	}
 	return query
 }
 
@@ -973,6 +1437,56 @@ func (c *GroupClient) QueryBlocked(gr *Group) *UserQuery {
 		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedBlocked queries the blocked edge of a Group without scope.
+func (c *GroupClient) QueryUnscopedBlocked(gr *Group) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := gr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.BlockedTable, group.BlockedColumn),
+		)
+		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *GroupClient) QueryAdminBlocked(gr *Group) *UserQuery {
+	query := c.QueryBlocked(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *GroupClient) QueryFreeBlocked(gr *Group) *UserQuery {
+	query := c.QueryBlocked(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *GroupClient) QueryOldBlocked(gr *Group) *UserQuery {
+	query := c.QueryBlocked(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *GroupClient) QueryFooBlocked(gr *Group) *UserQuery {
+	query := c.QueryBlocked(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -989,11 +1503,79 @@ func (c *GroupClient) QueryUsers(gr *Group) *UserQuery {
 		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedUsers queries the users edge of a Group without scope.
+func (c *GroupClient) QueryUnscopedUsers(gr *Group) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := gr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, group.UsersTable, group.UsersPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *GroupClient) QueryAdminUsers(gr *Group) *UserQuery {
+	query := c.QueryUsers(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *GroupClient) QueryFreeUsers(gr *Group) *UserQuery {
+	query := c.QueryUsers(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *GroupClient) QueryOldUsers(gr *Group) *UserQuery {
+	query := c.QueryUsers(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *GroupClient) QueryFooUsers(gr *Group) *UserQuery {
+	query := c.QueryUsers(gr)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
 // QueryInfo queries the info edge of a Group.
 func (c *GroupClient) QueryInfo(gr *Group) *GroupInfoQuery {
+	query := &GroupInfoQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := gr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(groupinfo.Table, groupinfo.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, group.InfoTable, group.InfoColumn),
+		)
+		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
+		return fromV, nil
+	}
+	w := &groupinfoQueryWrapper{q: query}
+	groupinfoScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedInfo queries the info edge of a Group without scope.
+func (c *GroupClient) QueryUnscopedInfo(gr *Group) *GroupInfoQuery {
 	query := &GroupInfoQuery{config: c.config}
 	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
 		id := gr.ID
@@ -1016,11 +1598,17 @@ func (c *GroupClient) Hooks() []Hook {
 // GroupInfoClient is a client for the GroupInfo schema.
 type GroupInfoClient struct {
 	config
+	scope *groupinfoScope
 }
 
 // NewGroupInfoClient returns a client for the GroupInfo from the given config.
 func NewGroupInfoClient(c config) *GroupInfoClient {
 	return &GroupInfoClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *GroupInfoClient) Unscoped() *GroupInfoClient {
+	return &GroupInfoClient{config: c.config, scope: &groupinfoScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -1043,24 +1631,48 @@ func (c *GroupInfoClient) CreateBulk(builders ...*GroupInfoCreate) *GroupInfoCre
 // Update returns an update builder for GroupInfo.
 func (c *GroupInfoClient) Update() *GroupInfoUpdate {
 	mutation := newGroupInfoMutation(c.config, OpUpdate)
+	w := &groupinfoUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupinfoScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupInfoUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *GroupInfoClient) UpdateOne(gi *GroupInfo) *GroupInfoUpdateOne {
 	mutation := newGroupInfoMutation(c.config, OpUpdateOne, withGroupInfo(gi))
+	w := &groupinfoUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupinfoScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupInfoUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *GroupInfoClient) UpdateOneID(id int) *GroupInfoUpdateOne {
 	mutation := newGroupInfoMutation(c.config, OpUpdateOne, withGroupInfoID(id))
+	w := &groupinfoUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupinfoScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupInfoUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for GroupInfo.
 func (c *GroupInfoClient) Delete() *GroupInfoDelete {
 	mutation := newGroupInfoMutation(c.config, OpDelete)
+	w := &groupinfoUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &groupinfoScoper.DefaultScope
+	}
+	scope.query(w)
 	return &GroupInfoDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -1079,9 +1691,17 @@ func (c *GroupInfoClient) DeleteOneID(id int) *GroupInfoDeleteOne {
 
 // Query returns a query builder for GroupInfo.
 func (c *GroupInfoClient) Query() *GroupInfoQuery {
-	return &GroupInfoQuery{
+	query := &GroupInfoQuery{
 		config: c.config,
 	}
+	w := &groupinfoQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		groupinfoScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a GroupInfo entity by its id.
@@ -1111,6 +1731,40 @@ func (c *GroupInfoClient) QueryGroups(gi *GroupInfo) *GroupQuery {
 		fromV = sqlgraph.Neighbors(gi.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &groupQueryWrapper{q: query}
+	groupScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedGroups queries the groups edge of a GroupInfo without scope.
+func (c *GroupInfoClient) QueryUnscopedGroups(gi *GroupInfo) *GroupQuery {
+	query := &GroupQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := gi.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupinfo.Table, groupinfo.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, groupinfo.GroupsTable, groupinfo.GroupsColumn),
+		)
+		fromV = sqlgraph.Neighbors(gi.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *GroupInfoClient) QueryActiveGroups(gi *GroupInfo) *GroupQuery {
+	query := c.QueryGroups(gi)
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.ActiveScope
+	scope.query(w)
+	return query
+}
+
+func (c *GroupInfoClient) QueryInactiveGroups(gi *GroupInfo) *GroupQuery {
+	query := c.QueryGroups(gi)
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.InactiveScope
+	scope.query(w)
 	return query
 }
 
@@ -1122,11 +1776,17 @@ func (c *GroupInfoClient) Hooks() []Hook {
 // ItemClient is a client for the Item schema.
 type ItemClient struct {
 	config
+	scope *itemScope
 }
 
 // NewItemClient returns a client for the Item from the given config.
 func NewItemClient(c config) *ItemClient {
 	return &ItemClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *ItemClient) Unscoped() *ItemClient {
+	return &ItemClient{config: c.config, scope: &itemScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -1149,24 +1809,48 @@ func (c *ItemClient) CreateBulk(builders ...*ItemCreate) *ItemCreateBulk {
 // Update returns an update builder for Item.
 func (c *ItemClient) Update() *ItemUpdate {
 	mutation := newItemMutation(c.config, OpUpdate)
+	w := &itemUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &itemScoper.DefaultScope
+	}
+	scope.query(w)
 	return &ItemUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *ItemClient) UpdateOne(i *Item) *ItemUpdateOne {
 	mutation := newItemMutation(c.config, OpUpdateOne, withItem(i))
+	w := &itemUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &itemScoper.DefaultScope
+	}
+	scope.query(w)
 	return &ItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *ItemClient) UpdateOneID(id string) *ItemUpdateOne {
 	mutation := newItemMutation(c.config, OpUpdateOne, withItemID(id))
+	w := &itemUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &itemScoper.DefaultScope
+	}
+	scope.query(w)
 	return &ItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Item.
 func (c *ItemClient) Delete() *ItemDelete {
 	mutation := newItemMutation(c.config, OpDelete)
+	w := &itemUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &itemScoper.DefaultScope
+	}
+	scope.query(w)
 	return &ItemDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -1185,9 +1869,17 @@ func (c *ItemClient) DeleteOneID(id string) *ItemDeleteOne {
 
 // Query returns a query builder for Item.
 func (c *ItemClient) Query() *ItemQuery {
-	return &ItemQuery{
+	query := &ItemQuery{
 		config: c.config,
 	}
+	w := &itemQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		itemScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Item entity by its id.
@@ -1212,11 +1904,17 @@ func (c *ItemClient) Hooks() []Hook {
 // NodeClient is a client for the Node schema.
 type NodeClient struct {
 	config
+	scope *nodeScope
 }
 
 // NewNodeClient returns a client for the Node from the given config.
 func NewNodeClient(c config) *NodeClient {
 	return &NodeClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *NodeClient) Unscoped() *NodeClient {
+	return &NodeClient{config: c.config, scope: &nodeScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -1239,24 +1937,48 @@ func (c *NodeClient) CreateBulk(builders ...*NodeCreate) *NodeCreateBulk {
 // Update returns an update builder for Node.
 func (c *NodeClient) Update() *NodeUpdate {
 	mutation := newNodeMutation(c.config, OpUpdate)
+	w := &nodeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &nodeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &NodeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *NodeClient) UpdateOne(n *Node) *NodeUpdateOne {
 	mutation := newNodeMutation(c.config, OpUpdateOne, withNode(n))
+	w := &nodeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &nodeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &NodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *NodeClient) UpdateOneID(id int) *NodeUpdateOne {
 	mutation := newNodeMutation(c.config, OpUpdateOne, withNodeID(id))
+	w := &nodeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &nodeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &NodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Node.
 func (c *NodeClient) Delete() *NodeDelete {
 	mutation := newNodeMutation(c.config, OpDelete)
+	w := &nodeUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &nodeScoper.DefaultScope
+	}
+	scope.query(w)
 	return &NodeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -1275,9 +1997,17 @@ func (c *NodeClient) DeleteOneID(id int) *NodeDeleteOne {
 
 // Query returns a query builder for Node.
 func (c *NodeClient) Query() *NodeQuery {
-	return &NodeQuery{
+	query := &NodeQuery{
 		config: c.config,
 	}
+	w := &nodeQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		nodeScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Node entity by its id.
@@ -1307,11 +2037,47 @@ func (c *NodeClient) QueryPrev(n *Node) *NodeQuery {
 		fromV = sqlgraph.Neighbors(n.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &nodeQueryWrapper{q: query}
+	nodeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedPrev queries the prev edge of a Node without scope.
+func (c *NodeClient) QueryUnscopedPrev(n *Node) *NodeQuery {
+	query := &NodeQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := n.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(node.Table, node.FieldID, id),
+			sqlgraph.To(node.Table, node.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, node.PrevTable, node.PrevColumn),
+		)
+		fromV = sqlgraph.Neighbors(n.driver.Dialect(), step)
+		return fromV, nil
+	}
 	return query
 }
 
 // QueryNext queries the next edge of a Node.
 func (c *NodeClient) QueryNext(n *Node) *NodeQuery {
+	query := &NodeQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := n.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(node.Table, node.FieldID, id),
+			sqlgraph.To(node.Table, node.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, node.NextTable, node.NextColumn),
+		)
+		fromV = sqlgraph.Neighbors(n.driver.Dialect(), step)
+		return fromV, nil
+	}
+	w := &nodeQueryWrapper{q: query}
+	nodeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedNext queries the next edge of a Node without scope.
+func (c *NodeClient) QueryUnscopedNext(n *Node) *NodeQuery {
 	query := &NodeQuery{config: c.config}
 	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
 		id := n.ID
@@ -1334,11 +2100,21 @@ func (c *NodeClient) Hooks() []Hook {
 // PetClient is a client for the Pet schema.
 type PetClient struct {
 	config
+	scope *petScope
 }
 
 // NewPetClient returns a client for the Pet from the given config.
 func NewPetClient(c config) *PetClient {
 	return &PetClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *PetClient) Unscoped() *PetClient {
+	return &PetClient{config: c.config, scope: &petScoper.noneScope}
+}
+
+func (c *PetClient) Old() *PetClient {
+	return &PetClient{config: c.config, scope: &petScoper.OldScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -1361,24 +2137,48 @@ func (c *PetClient) CreateBulk(builders ...*PetCreate) *PetCreateBulk {
 // Update returns an update builder for Pet.
 func (c *PetClient) Update() *PetUpdate {
 	mutation := newPetMutation(c.config, OpUpdate)
+	w := &petUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &petScoper.DefaultScope
+	}
+	scope.query(w)
 	return &PetUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *PetClient) UpdateOne(pe *Pet) *PetUpdateOne {
 	mutation := newPetMutation(c.config, OpUpdateOne, withPet(pe))
+	w := &petUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &petScoper.DefaultScope
+	}
+	scope.query(w)
 	return &PetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *PetClient) UpdateOneID(id int) *PetUpdateOne {
 	mutation := newPetMutation(c.config, OpUpdateOne, withPetID(id))
+	w := &petUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &petScoper.DefaultScope
+	}
+	scope.query(w)
 	return &PetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Pet.
 func (c *PetClient) Delete() *PetDelete {
 	mutation := newPetMutation(c.config, OpDelete)
+	w := &petUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &petScoper.DefaultScope
+	}
+	scope.query(w)
 	return &PetDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -1397,9 +2197,17 @@ func (c *PetClient) DeleteOneID(id int) *PetDeleteOne {
 
 // Query returns a query builder for Pet.
 func (c *PetClient) Query() *PetQuery {
-	return &PetQuery{
+	query := &PetQuery{
 		config: c.config,
 	}
+	w := &petQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		petScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Pet entity by its id.
@@ -1429,6 +2237,56 @@ func (c *PetClient) QueryTeam(pe *Pet) *UserQuery {
 		fromV = sqlgraph.Neighbors(pe.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedTeam queries the team edge of a Pet without scope.
+func (c *PetClient) QueryUnscopedTeam(pe *Pet) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := pe.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(pet.Table, pet.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, pet.TeamTable, pet.TeamColumn),
+		)
+		fromV = sqlgraph.Neighbors(pe.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *PetClient) QueryAdminTeam(pe *Pet) *UserQuery {
+	query := c.QueryTeam(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *PetClient) QueryFreeTeam(pe *Pet) *UserQuery {
+	query := c.QueryTeam(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *PetClient) QueryOldTeam(pe *Pet) *UserQuery {
+	query := c.QueryTeam(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *PetClient) QueryFooTeam(pe *Pet) *UserQuery {
+	query := c.QueryTeam(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -1445,6 +2303,56 @@ func (c *PetClient) QueryOwner(pe *Pet) *UserQuery {
 		fromV = sqlgraph.Neighbors(pe.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedOwner queries the owner edge of a Pet without scope.
+func (c *PetClient) QueryUnscopedOwner(pe *Pet) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := pe.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(pet.Table, pet.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, pet.OwnerTable, pet.OwnerColumn),
+		)
+		fromV = sqlgraph.Neighbors(pe.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *PetClient) QueryAdminOwner(pe *Pet) *UserQuery {
+	query := c.QueryOwner(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *PetClient) QueryFreeOwner(pe *Pet) *UserQuery {
+	query := c.QueryOwner(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *PetClient) QueryOldOwner(pe *Pet) *UserQuery {
+	query := c.QueryOwner(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *PetClient) QueryFooOwner(pe *Pet) *UserQuery {
+	query := c.QueryOwner(pe)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -1456,11 +2364,17 @@ func (c *PetClient) Hooks() []Hook {
 // SpecClient is a client for the Spec schema.
 type SpecClient struct {
 	config
+	scope *specScope
 }
 
 // NewSpecClient returns a client for the Spec from the given config.
 func NewSpecClient(c config) *SpecClient {
 	return &SpecClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *SpecClient) Unscoped() *SpecClient {
+	return &SpecClient{config: c.config, scope: &specScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -1483,24 +2397,48 @@ func (c *SpecClient) CreateBulk(builders ...*SpecCreate) *SpecCreateBulk {
 // Update returns an update builder for Spec.
 func (c *SpecClient) Update() *SpecUpdate {
 	mutation := newSpecMutation(c.config, OpUpdate)
+	w := &specUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &specScoper.DefaultScope
+	}
+	scope.query(w)
 	return &SpecUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *SpecClient) UpdateOne(s *Spec) *SpecUpdateOne {
 	mutation := newSpecMutation(c.config, OpUpdateOne, withSpec(s))
+	w := &specUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &specScoper.DefaultScope
+	}
+	scope.query(w)
 	return &SpecUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *SpecClient) UpdateOneID(id int) *SpecUpdateOne {
 	mutation := newSpecMutation(c.config, OpUpdateOne, withSpecID(id))
+	w := &specUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &specScoper.DefaultScope
+	}
+	scope.query(w)
 	return &SpecUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Spec.
 func (c *SpecClient) Delete() *SpecDelete {
 	mutation := newSpecMutation(c.config, OpDelete)
+	w := &specUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &specScoper.DefaultScope
+	}
+	scope.query(w)
 	return &SpecDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -1519,9 +2457,17 @@ func (c *SpecClient) DeleteOneID(id int) *SpecDeleteOne {
 
 // Query returns a query builder for Spec.
 func (c *SpecClient) Query() *SpecQuery {
-	return &SpecQuery{
+	query := &SpecQuery{
 		config: c.config,
 	}
+	w := &specQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		specScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Spec entity by its id.
@@ -1551,6 +2497,24 @@ func (c *SpecClient) QueryCard(s *Spec) *CardQuery {
 		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &cardQueryWrapper{q: query}
+	cardScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedCard queries the card edge of a Spec without scope.
+func (c *SpecClient) QueryUnscopedCard(s *Spec) *CardQuery {
+	query := &CardQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(spec.Table, spec.FieldID, id),
+			sqlgraph.To(card.Table, card.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, spec.CardTable, spec.CardPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
 	return query
 }
 
@@ -1562,11 +2526,17 @@ func (c *SpecClient) Hooks() []Hook {
 // TaskClient is a client for the Task schema.
 type TaskClient struct {
 	config
+	scope *taskScope
 }
 
 // NewTaskClient returns a client for the Task from the given config.
 func NewTaskClient(c config) *TaskClient {
 	return &TaskClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *TaskClient) Unscoped() *TaskClient {
+	return &TaskClient{config: c.config, scope: &taskScoper.noneScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -1589,24 +2559,48 @@ func (c *TaskClient) CreateBulk(builders ...*TaskCreate) *TaskCreateBulk {
 // Update returns an update builder for Task.
 func (c *TaskClient) Update() *TaskUpdate {
 	mutation := newTaskMutation(c.config, OpUpdate)
+	w := &taskUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &taskScoper.DefaultScope
+	}
+	scope.query(w)
 	return &TaskUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *TaskClient) UpdateOne(t *Task) *TaskUpdateOne {
 	mutation := newTaskMutation(c.config, OpUpdateOne, withTask(t))
+	w := &taskUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &taskScoper.DefaultScope
+	}
+	scope.query(w)
 	return &TaskUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *TaskClient) UpdateOneID(id int) *TaskUpdateOne {
 	mutation := newTaskMutation(c.config, OpUpdateOne, withTaskID(id))
+	w := &taskUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &taskScoper.DefaultScope
+	}
+	scope.query(w)
 	return &TaskUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Task.
 func (c *TaskClient) Delete() *TaskDelete {
 	mutation := newTaskMutation(c.config, OpDelete)
+	w := &taskUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &taskScoper.DefaultScope
+	}
+	scope.query(w)
 	return &TaskDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -1625,9 +2619,17 @@ func (c *TaskClient) DeleteOneID(id int) *TaskDeleteOne {
 
 // Query returns a query builder for Task.
 func (c *TaskClient) Query() *TaskQuery {
-	return &TaskQuery{
+	query := &TaskQuery{
 		config: c.config,
 	}
+	w := &taskQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		taskScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a Task entity by its id.
@@ -1652,11 +2654,33 @@ func (c *TaskClient) Hooks() []Hook {
 // UserClient is a client for the User schema.
 type UserClient struct {
 	config
+	scope *userScope
 }
 
 // NewUserClient returns a client for the User from the given config.
 func NewUserClient(c config) *UserClient {
 	return &UserClient{config: c}
+}
+
+// Unscoped return a client without scope
+func (c *UserClient) Unscoped() *UserClient {
+	return &UserClient{config: c.config, scope: &userScoper.noneScope}
+}
+
+func (c *UserClient) Admin() *UserClient {
+	return &UserClient{config: c.config, scope: &userScoper.AdminScope}
+}
+
+func (c *UserClient) Free() *UserClient {
+	return &UserClient{config: c.config, scope: &userScoper.FreeScope}
+}
+
+func (c *UserClient) Old() *UserClient {
+	return &UserClient{config: c.config, scope: &userScoper.OldScope}
+}
+
+func (c *UserClient) Foo() *UserClient {
+	return &UserClient{config: c.config, scope: &userScoper.FooScope}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
@@ -1679,24 +2703,48 @@ func (c *UserClient) CreateBulk(builders ...*UserCreate) *UserCreateBulk {
 // Update returns an update builder for User.
 func (c *UserClient) Update() *UserUpdate {
 	mutation := newUserMutation(c.config, OpUpdate)
+	w := &userUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &userScoper.DefaultScope
+	}
+	scope.query(w)
 	return &UserUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
 func (c *UserClient) UpdateOne(u *User) *UserUpdateOne {
 	mutation := newUserMutation(c.config, OpUpdateOne, withUser(u))
+	w := &userUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &userScoper.DefaultScope
+	}
+	scope.query(w)
 	return &UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *UserClient) UpdateOneID(id int) *UserUpdateOne {
 	mutation := newUserMutation(c.config, OpUpdateOne, withUserID(id))
+	w := &userUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &userScoper.DefaultScope
+	}
+	scope.query(w)
 	return &UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for User.
 func (c *UserClient) Delete() *UserDelete {
 	mutation := newUserMutation(c.config, OpDelete)
+	w := &userUpdateQueryWrapper{u: mutation}
+	scope := c.scope
+	if scope == nil {
+		scope = &userScoper.DefaultScope
+	}
+	scope.query(w)
 	return &UserDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -1715,9 +2763,17 @@ func (c *UserClient) DeleteOneID(id int) *UserDeleteOne {
 
 // Query returns a query builder for User.
 func (c *UserClient) Query() *UserQuery {
-	return &UserQuery{
+	query := &UserQuery{
 		config: c.config,
 	}
+	w := &userQueryWrapper{q: query}
+	if !c.scope.Unscoped() {
+		userScoper.DefaultScope.query(w)
+	}
+	if c.scope != nil {
+		c.scope.query(w)
+	}
+	return query
 }
 
 // Get returns a User entity by its id.
@@ -1747,6 +2803,24 @@ func (c *UserClient) QueryCard(u *User) *CardQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &cardQueryWrapper{q: query}
+	cardScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedCard queries the card edge of a User without scope.
+func (c *UserClient) QueryUnscopedCard(u *User) *CardQuery {
+	query := &CardQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(card.Table, card.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.CardTable, user.CardColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
 	return query
 }
 
@@ -1763,11 +2837,55 @@ func (c *UserClient) QueryPets(u *User) *PetQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &petQueryWrapper{q: query}
+	petScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedPets queries the pets edge of a User without scope.
+func (c *UserClient) QueryUnscopedPets(u *User) *PetQuery {
+	query := &PetQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(pet.Table, pet.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.PetsTable, user.PetsColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryOldPets(u *User) *PetQuery {
+	query := c.QueryPets(u)
+	w := &petQueryWrapper{q: query}
+	scope := &petScoper.OldScope
+	scope.query(w)
 	return query
 }
 
 // QueryFiles queries the files edge of a User.
 func (c *UserClient) QueryFiles(u *User) *FileQuery {
+	query := &FileQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(file.Table, file.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.FilesTable, user.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	w := &fileQueryWrapper{q: query}
+	fileScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFiles queries the files edge of a User without scope.
+func (c *UserClient) QueryUnscopedFiles(u *User) *FileQuery {
 	query := &FileQuery{config: c.config}
 	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
 		id := u.ID
@@ -1795,6 +2913,40 @@ func (c *UserClient) QueryGroups(u *User) *GroupQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &groupQueryWrapper{q: query}
+	groupScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedGroups queries the groups edge of a User without scope.
+func (c *UserClient) QueryUnscopedGroups(u *User) *GroupQuery {
+	query := &GroupQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.GroupsTable, user.GroupsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryActiveGroups(u *User) *GroupQuery {
+	query := c.QueryGroups(u)
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.ActiveScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryInactiveGroups(u *User) *GroupQuery {
+	query := c.QueryGroups(u)
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.InactiveScope
+	scope.query(w)
 	return query
 }
 
@@ -1811,6 +2963,56 @@ func (c *UserClient) QueryFriends(u *User) *UserQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFriends queries the friends edge of a User without scope.
+func (c *UserClient) QueryUnscopedFriends(u *User) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.FriendsTable, user.FriendsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryAdminFriends(u *User) *UserQuery {
+	query := c.QueryFriends(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFreeFriends(u *User) *UserQuery {
+	query := c.QueryFriends(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryOldFriends(u *User) *UserQuery {
+	query := c.QueryFriends(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFooFriends(u *User) *UserQuery {
+	query := c.QueryFriends(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -1827,6 +3029,56 @@ func (c *UserClient) QueryFollowers(u *User) *UserQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFollowers queries the followers edge of a User without scope.
+func (c *UserClient) QueryUnscopedFollowers(u *User) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, user.FollowersTable, user.FollowersPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryAdminFollowers(u *User) *UserQuery {
+	query := c.QueryFollowers(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFreeFollowers(u *User) *UserQuery {
+	query := c.QueryFollowers(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryOldFollowers(u *User) *UserQuery {
+	query := c.QueryFollowers(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFooFollowers(u *User) *UserQuery {
+	query := c.QueryFollowers(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -1843,6 +3095,56 @@ func (c *UserClient) QueryFollowing(u *User) *UserQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFollowing queries the following edge of a User without scope.
+func (c *UserClient) QueryUnscopedFollowing(u *User) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.FollowingTable, user.FollowingPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryAdminFollowing(u *User) *UserQuery {
+	query := c.QueryFollowing(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFreeFollowing(u *User) *UserQuery {
+	query := c.QueryFollowing(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryOldFollowing(u *User) *UserQuery {
+	query := c.QueryFollowing(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFooFollowing(u *User) *UserQuery {
+	query := c.QueryFollowing(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -1859,6 +3161,32 @@ func (c *UserClient) QueryTeam(u *User) *PetQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &petQueryWrapper{q: query}
+	petScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedTeam queries the team edge of a User without scope.
+func (c *UserClient) QueryUnscopedTeam(u *User) *PetQuery {
+	query := &PetQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(pet.Table, pet.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.TeamTable, user.TeamColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryOldTeam(u *User) *PetQuery {
+	query := c.QueryTeam(u)
+	w := &petQueryWrapper{q: query}
+	scope := &petScoper.OldScope
+	scope.query(w)
 	return query
 }
 
@@ -1875,6 +3203,56 @@ func (c *UserClient) QuerySpouse(u *User) *UserQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedSpouse queries the spouse edge of a User without scope.
+func (c *UserClient) QueryUnscopedSpouse(u *User) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.SpouseTable, user.SpouseColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryAdminSpouse(u *User) *UserQuery {
+	query := c.QuerySpouse(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFreeSpouse(u *User) *UserQuery {
+	query := c.QuerySpouse(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryOldSpouse(u *User) *UserQuery {
+	query := c.QuerySpouse(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFooSpouse(u *User) *UserQuery {
+	query := c.QuerySpouse(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -1891,6 +3269,56 @@ func (c *UserClient) QueryChildren(u *User) *UserQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedChildren queries the children edge of a User without scope.
+func (c *UserClient) QueryUnscopedChildren(u *User) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.ChildrenTable, user.ChildrenColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryAdminChildren(u *User) *UserQuery {
+	query := c.QueryChildren(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFreeChildren(u *User) *UserQuery {
+	query := c.QueryChildren(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryOldChildren(u *User) *UserQuery {
+	query := c.QueryChildren(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFooChildren(u *User) *UserQuery {
+	query := c.QueryChildren(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -1907,6 +3335,56 @@ func (c *UserClient) QueryParent(u *User) *UserQuery {
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedParent queries the parent edge of a User without scope.
+func (c *UserClient) QueryUnscopedParent(u *User) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.ParentTable, user.ParentColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+func (c *UserClient) QueryAdminParent(u *User) *UserQuery {
+	query := c.QueryParent(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFreeParent(u *User) *UserQuery {
+	query := c.QueryParent(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryOldParent(u *User) *UserQuery {
+	query := c.QueryParent(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (c *UserClient) QueryFooParent(u *User) *UserQuery {
+	query := c.QueryParent(u)
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 

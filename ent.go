@@ -68,6 +68,8 @@ type (
 		// Annotations returns a list of schema annotations to be used by
 		// codegen extensions.
 		Annotations() []schema.Annotation
+		// Scopes returns the scopes of the schema.
+		Scopes() []string
 	}
 
 	// A Field interface returns a field descriptor for vertex fields/properties.
@@ -175,6 +177,8 @@ type (
 		// Annotations returns a list of schema annotations to add
 		// to the schema annotations.
 		Annotations() []schema.Annotation
+		// Scopes returns a slice of scopes to add to the schema.
+		Scopes() []string
 	}
 
 	// The Policy type defines the write privacy policy of an entity.
@@ -228,6 +232,9 @@ func (Schema) Policy() Policy { return nil }
 
 // Annotations of the schema.
 func (Schema) Annotations() []schema.Annotation { return nil }
+
+// Scopes of the schema.
+func (Schema) Scopes() []string { return nil }
 
 type (
 	// Value represents a value returned by ent.

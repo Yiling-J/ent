@@ -92,11 +92,91 @@ func (cq *CardQuery) QueryOwner() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(cq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedOwner chains the current query on the "owner" edge without scope.
+func (cq *CardQuery) QueryUnscopedOwner() *UserQuery {
+	query := &UserQuery{config: cq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := cq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := cq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(card.Table, card.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, card.OwnerTable, card.OwnerColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(cq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (cq *CardQuery) QueryAdminOwner() *UserQuery {
+	query := cq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (cq *CardQuery) QueryFreeOwner() *UserQuery {
+	query := cq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (cq *CardQuery) QueryOldOwner() *UserQuery {
+	query := cq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (cq *CardQuery) QueryFooOwner() *UserQuery {
+	query := cq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
 // QuerySpec chains the current query on the "spec" edge.
 func (cq *CardQuery) QuerySpec() *SpecQuery {
+	query := &SpecQuery{config: cq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := cq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := cq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(card.Table, card.FieldID, selector),
+			sqlgraph.To(spec.Table, spec.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, card.SpecTable, card.SpecPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(cq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	w := &specQueryWrapper{q: query}
+	specScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedSpec chains the current query on the "spec" edge without scope.
+func (cq *CardQuery) QueryUnscopedSpec() *SpecQuery {
 	query := &SpecQuery{config: cq.config}
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := cq.prepareQuery(ctx); err != nil {
@@ -314,7 +394,42 @@ func (cq *CardQuery) WithOwner(opts ...func(*UserQuery)) *CardQuery {
 		opt(query)
 	}
 	cq.withOwner = query
+	w := &userQueryWrapper{q: cq.withOwner}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return cq
+}
+
+func (cq *CardQuery) WithAdminOwner(opts ...func(*UserQuery)) *CardQuery {
+	query := cq.WithOwner(opts...)
+	w := &userQueryWrapper{q: cq.withOwner}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (cq *CardQuery) WithFreeOwner(opts ...func(*UserQuery)) *CardQuery {
+	query := cq.WithOwner(opts...)
+	w := &userQueryWrapper{q: cq.withOwner}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (cq *CardQuery) WithOldOwner(opts ...func(*UserQuery)) *CardQuery {
+	query := cq.WithOwner(opts...)
+	w := &userQueryWrapper{q: cq.withOwner}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (cq *CardQuery) WithFooOwner(opts ...func(*UserQuery)) *CardQuery {
+	query := cq.WithOwner(opts...)
+	w := &userQueryWrapper{q: cq.withOwner}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithSpec tells the query-builder to eager-load the nodes that are connected to
@@ -325,6 +440,9 @@ func (cq *CardQuery) WithSpec(opts ...func(*SpecQuery)) *CardQuery {
 		opt(query)
 	}
 	cq.withSpec = query
+	w := &specQueryWrapper{q: cq.withSpec}
+	scope := &specScoper.DefaultScope
+	scope.query(w)
 	return cq
 }
 

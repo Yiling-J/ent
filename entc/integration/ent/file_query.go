@@ -94,6 +94,62 @@ func (fq *FileQuery) QueryOwner() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(fq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedOwner chains the current query on the "owner" edge without scope.
+func (fq *FileQuery) QueryUnscopedOwner() *UserQuery {
+	query := &UserQuery{config: fq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := fq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := fq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(file.Table, file.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, file.OwnerTable, file.OwnerColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(fq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (fq *FileQuery) QueryAdminOwner() *UserQuery {
+	query := fq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (fq *FileQuery) QueryFreeOwner() *UserQuery {
+	query := fq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (fq *FileQuery) QueryOldOwner() *UserQuery {
+	query := fq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (fq *FileQuery) QueryFooOwner() *UserQuery {
+	query := fq.QueryOwner()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -116,11 +172,59 @@ func (fq *FileQuery) QueryType() *FileTypeQuery {
 		fromU = sqlgraph.SetNeighbors(fq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &filetypeQueryWrapper{q: query}
+	filetypeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedType chains the current query on the "type" edge without scope.
+func (fq *FileQuery) QueryUnscopedType() *FileTypeQuery {
+	query := &FileTypeQuery{config: fq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := fq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := fq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(file.Table, file.FieldID, selector),
+			sqlgraph.To(filetype.Table, filetype.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, file.TypeTable, file.TypeColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(fq.driver.Dialect(), step)
+		return fromU, nil
+	}
 	return query
 }
 
 // QueryField chains the current query on the "field" edge.
 func (fq *FileQuery) QueryField() *FieldTypeQuery {
+	query := &FieldTypeQuery{config: fq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := fq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := fq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(file.Table, file.FieldID, selector),
+			sqlgraph.To(fieldtype.Table, fieldtype.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, file.FieldTable, file.FieldColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(fq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	w := &fieldtypeQueryWrapper{q: query}
+	fieldtypeScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedField chains the current query on the "field" edge without scope.
+func (fq *FileQuery) QueryUnscopedField() *FieldTypeQuery {
 	query := &FieldTypeQuery{config: fq.config}
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := fq.prepareQuery(ctx); err != nil {
@@ -339,7 +443,42 @@ func (fq *FileQuery) WithOwner(opts ...func(*UserQuery)) *FileQuery {
 		opt(query)
 	}
 	fq.withOwner = query
+	w := &userQueryWrapper{q: fq.withOwner}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return fq
+}
+
+func (fq *FileQuery) WithAdminOwner(opts ...func(*UserQuery)) *FileQuery {
+	query := fq.WithOwner(opts...)
+	w := &userQueryWrapper{q: fq.withOwner}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (fq *FileQuery) WithFreeOwner(opts ...func(*UserQuery)) *FileQuery {
+	query := fq.WithOwner(opts...)
+	w := &userQueryWrapper{q: fq.withOwner}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (fq *FileQuery) WithOldOwner(opts ...func(*UserQuery)) *FileQuery {
+	query := fq.WithOwner(opts...)
+	w := &userQueryWrapper{q: fq.withOwner}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (fq *FileQuery) WithFooOwner(opts ...func(*UserQuery)) *FileQuery {
+	query := fq.WithOwner(opts...)
+	w := &userQueryWrapper{q: fq.withOwner}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithType tells the query-builder to eager-load the nodes that are connected to
@@ -350,6 +489,9 @@ func (fq *FileQuery) WithType(opts ...func(*FileTypeQuery)) *FileQuery {
 		opt(query)
 	}
 	fq.withType = query
+	w := &filetypeQueryWrapper{q: fq.withType}
+	scope := &filetypeScoper.DefaultScope
+	scope.query(w)
 	return fq
 }
 
@@ -361,6 +503,9 @@ func (fq *FileQuery) WithField(opts ...func(*FieldTypeQuery)) *FileQuery {
 		opt(query)
 	}
 	fq.withField = query
+	w := &fieldtypeQueryWrapper{q: fq.withField}
+	scope := &fieldtypeScoper.DefaultScope
+	scope.query(w)
 	return fq
 }
 

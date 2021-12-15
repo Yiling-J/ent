@@ -89,6 +89,46 @@ func (giq *GroupInfoQuery) QueryGroups() *GroupQuery {
 		fromU = sqlgraph.SetNeighbors(giq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &groupQueryWrapper{q: query}
+	groupScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedGroups chains the current query on the "groups" edge without scope.
+func (giq *GroupInfoQuery) QueryUnscopedGroups() *GroupQuery {
+	query := &GroupQuery{config: giq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := giq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := giq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupinfo.Table, groupinfo.FieldID, selector),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, groupinfo.GroupsTable, groupinfo.GroupsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(giq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (giq *GroupInfoQuery) QueryActiveGroups() *GroupQuery {
+	query := giq.QueryGroups()
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.ActiveScope
+	scope.query(w)
+	return query
+}
+
+func (giq *GroupInfoQuery) QueryInactiveGroups() *GroupQuery {
+	query := giq.QueryGroups()
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.InactiveScope
+	scope.query(w)
 	return query
 }
 
@@ -288,7 +328,26 @@ func (giq *GroupInfoQuery) WithGroups(opts ...func(*GroupQuery)) *GroupInfoQuery
 		opt(query)
 	}
 	giq.withGroups = query
+	w := &groupQueryWrapper{q: giq.withGroups}
+	scope := &groupScoper.DefaultScope
+	scope.query(w)
 	return giq
+}
+
+func (giq *GroupInfoQuery) WithActiveGroups(opts ...func(*GroupQuery)) *GroupInfoQuery {
+	query := giq.WithGroups(opts...)
+	w := &groupQueryWrapper{q: giq.withGroups}
+	scope := &groupScoper.ActiveScope
+	scope.query(w)
+	return query
+}
+
+func (giq *GroupInfoQuery) WithInactiveGroups(opts ...func(*GroupQuery)) *GroupInfoQuery {
+	query := giq.WithGroups(opts...)
+	w := &groupQueryWrapper{q: giq.withGroups}
+	scope := &groupScoper.InactiveScope
+	scope.query(w)
+	return query
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.

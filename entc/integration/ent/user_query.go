@@ -103,6 +103,30 @@ func (uq *UserQuery) QueryCard() *CardQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &cardQueryWrapper{q: query}
+	cardScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedCard chains the current query on the "card" edge without scope.
+func (uq *UserQuery) QueryUnscopedCard() *CardQuery {
+	query := &CardQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(card.Table, card.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.CardTable, user.CardColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
 	return query
 }
 
@@ -125,11 +149,67 @@ func (uq *UserQuery) QueryPets() *PetQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &petQueryWrapper{q: query}
+	petScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedPets chains the current query on the "pets" edge without scope.
+func (uq *UserQuery) QueryUnscopedPets() *PetQuery {
+	query := &PetQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(pet.Table, pet.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.PetsTable, user.PetsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryOldPets() *PetQuery {
+	query := uq.QueryPets()
+	w := &petQueryWrapper{q: query}
+	scope := &petScoper.OldScope
+	scope.query(w)
 	return query
 }
 
 // QueryFiles chains the current query on the "files" edge.
 func (uq *UserQuery) QueryFiles() *FileQuery {
+	query := &FileQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(file.Table, file.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.FilesTable, user.FilesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	w := &fileQueryWrapper{q: query}
+	fileScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFiles chains the current query on the "files" edge without scope.
+func (uq *UserQuery) QueryUnscopedFiles() *FileQuery {
 	query := &FileQuery{config: uq.config}
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := uq.prepareQuery(ctx); err != nil {
@@ -169,6 +249,46 @@ func (uq *UserQuery) QueryGroups() *GroupQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &groupQueryWrapper{q: query}
+	groupScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedGroups chains the current query on the "groups" edge without scope.
+func (uq *UserQuery) QueryUnscopedGroups() *GroupQuery {
+	query := &GroupQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.GroupsTable, user.GroupsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryActiveGroups() *GroupQuery {
+	query := uq.QueryGroups()
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.ActiveScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryInactiveGroups() *GroupQuery {
+	query := uq.QueryGroups()
+	w := &groupQueryWrapper{q: query}
+	scope := &groupScoper.InactiveScope
+	scope.query(w)
 	return query
 }
 
@@ -191,6 +311,62 @@ func (uq *UserQuery) QueryFriends() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFriends chains the current query on the "friends" edge without scope.
+func (uq *UserQuery) QueryUnscopedFriends() *UserQuery {
+	query := &UserQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.FriendsTable, user.FriendsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryAdminFriends() *UserQuery {
+	query := uq.QueryFriends()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFreeFriends() *UserQuery {
+	query := uq.QueryFriends()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryOldFriends() *UserQuery {
+	query := uq.QueryFriends()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFooFriends() *UserQuery {
+	query := uq.QueryFriends()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -213,6 +389,62 @@ func (uq *UserQuery) QueryFollowers() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFollowers chains the current query on the "followers" edge without scope.
+func (uq *UserQuery) QueryUnscopedFollowers() *UserQuery {
+	query := &UserQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, user.FollowersTable, user.FollowersPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryAdminFollowers() *UserQuery {
+	query := uq.QueryFollowers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFreeFollowers() *UserQuery {
+	query := uq.QueryFollowers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryOldFollowers() *UserQuery {
+	query := uq.QueryFollowers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFooFollowers() *UserQuery {
+	query := uq.QueryFollowers()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -235,6 +467,62 @@ func (uq *UserQuery) QueryFollowing() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedFollowing chains the current query on the "following" edge without scope.
+func (uq *UserQuery) QueryUnscopedFollowing() *UserQuery {
+	query := &UserQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.FollowingTable, user.FollowingPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryAdminFollowing() *UserQuery {
+	query := uq.QueryFollowing()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFreeFollowing() *UserQuery {
+	query := uq.QueryFollowing()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryOldFollowing() *UserQuery {
+	query := uq.QueryFollowing()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFooFollowing() *UserQuery {
+	query := uq.QueryFollowing()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -257,6 +545,38 @@ func (uq *UserQuery) QueryTeam() *PetQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &petQueryWrapper{q: query}
+	petScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedTeam chains the current query on the "team" edge without scope.
+func (uq *UserQuery) QueryUnscopedTeam() *PetQuery {
+	query := &PetQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(pet.Table, pet.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.TeamTable, user.TeamColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryOldTeam() *PetQuery {
+	query := uq.QueryTeam()
+	w := &petQueryWrapper{q: query}
+	scope := &petScoper.OldScope
+	scope.query(w)
 	return query
 }
 
@@ -279,6 +599,62 @@ func (uq *UserQuery) QuerySpouse() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedSpouse chains the current query on the "spouse" edge without scope.
+func (uq *UserQuery) QueryUnscopedSpouse() *UserQuery {
+	query := &UserQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.SpouseTable, user.SpouseColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryAdminSpouse() *UserQuery {
+	query := uq.QuerySpouse()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFreeSpouse() *UserQuery {
+	query := uq.QuerySpouse()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryOldSpouse() *UserQuery {
+	query := uq.QuerySpouse()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFooSpouse() *UserQuery {
+	query := uq.QuerySpouse()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -301,6 +677,62 @@ func (uq *UserQuery) QueryChildren() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedChildren chains the current query on the "children" edge without scope.
+func (uq *UserQuery) QueryUnscopedChildren() *UserQuery {
+	query := &UserQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.ChildrenTable, user.ChildrenColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryAdminChildren() *UserQuery {
+	query := uq.QueryChildren()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFreeChildren() *UserQuery {
+	query := uq.QueryChildren()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryOldChildren() *UserQuery {
+	query := uq.QueryChildren()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFooChildren() *UserQuery {
+	query := uq.QueryChildren()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -323,6 +755,62 @@ func (uq *UserQuery) QueryParent() *UserQuery {
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
 	}
+	w := &userQueryWrapper{q: query}
+	userScoper.DefaultScope.query(w)
+	return query
+}
+
+// QueryUnscopedParent chains the current query on the "parent" edge without scope.
+func (uq *UserQuery) QueryUnscopedParent() *UserQuery {
+	query := &UserQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.ParentTable, user.ParentColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+func (uq *UserQuery) QueryAdminParent() *UserQuery {
+	query := uq.QueryParent()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFreeParent() *UserQuery {
+	query := uq.QueryParent()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryOldParent() *UserQuery {
+	query := uq.QueryParent()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) QueryFooParent() *UserQuery {
+	query := uq.QueryParent()
+	w := &userQueryWrapper{q: query}
+	scope := &userScoper.FooScope
+	scope.query(w)
 	return query
 }
 
@@ -532,6 +1020,9 @@ func (uq *UserQuery) WithCard(opts ...func(*CardQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withCard = query
+	w := &cardQueryWrapper{q: uq.withCard}
+	scope := &cardScoper.DefaultScope
+	scope.query(w)
 	return uq
 }
 
@@ -543,7 +1034,18 @@ func (uq *UserQuery) WithPets(opts ...func(*PetQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withPets = query
+	w := &petQueryWrapper{q: uq.withPets}
+	scope := &petScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithOldPets(opts ...func(*PetQuery)) *UserQuery {
+	query := uq.WithPets(opts...)
+	w := &petQueryWrapper{q: uq.withPets}
+	scope := &petScoper.OldScope
+	scope.query(w)
+	return query
 }
 
 // WithFiles tells the query-builder to eager-load the nodes that are connected to
@@ -554,6 +1056,9 @@ func (uq *UserQuery) WithFiles(opts ...func(*FileQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withFiles = query
+	w := &fileQueryWrapper{q: uq.withFiles}
+	scope := &fileScoper.DefaultScope
+	scope.query(w)
 	return uq
 }
 
@@ -565,7 +1070,26 @@ func (uq *UserQuery) WithGroups(opts ...func(*GroupQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withGroups = query
+	w := &groupQueryWrapper{q: uq.withGroups}
+	scope := &groupScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithActiveGroups(opts ...func(*GroupQuery)) *UserQuery {
+	query := uq.WithGroups(opts...)
+	w := &groupQueryWrapper{q: uq.withGroups}
+	scope := &groupScoper.ActiveScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithInactiveGroups(opts ...func(*GroupQuery)) *UserQuery {
+	query := uq.WithGroups(opts...)
+	w := &groupQueryWrapper{q: uq.withGroups}
+	scope := &groupScoper.InactiveScope
+	scope.query(w)
+	return query
 }
 
 // WithFriends tells the query-builder to eager-load the nodes that are connected to
@@ -576,7 +1100,42 @@ func (uq *UserQuery) WithFriends(opts ...func(*UserQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withFriends = query
+	w := &userQueryWrapper{q: uq.withFriends}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithAdminFriends(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFriends(opts...)
+	w := &userQueryWrapper{q: uq.withFriends}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFreeFriends(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFriends(opts...)
+	w := &userQueryWrapper{q: uq.withFriends}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithOldFriends(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFriends(opts...)
+	w := &userQueryWrapper{q: uq.withFriends}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFooFriends(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFriends(opts...)
+	w := &userQueryWrapper{q: uq.withFriends}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithFollowers tells the query-builder to eager-load the nodes that are connected to
@@ -587,7 +1146,42 @@ func (uq *UserQuery) WithFollowers(opts ...func(*UserQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withFollowers = query
+	w := &userQueryWrapper{q: uq.withFollowers}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithAdminFollowers(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowers(opts...)
+	w := &userQueryWrapper{q: uq.withFollowers}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFreeFollowers(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowers(opts...)
+	w := &userQueryWrapper{q: uq.withFollowers}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithOldFollowers(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowers(opts...)
+	w := &userQueryWrapper{q: uq.withFollowers}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFooFollowers(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowers(opts...)
+	w := &userQueryWrapper{q: uq.withFollowers}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithFollowing tells the query-builder to eager-load the nodes that are connected to
@@ -598,7 +1192,42 @@ func (uq *UserQuery) WithFollowing(opts ...func(*UserQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withFollowing = query
+	w := &userQueryWrapper{q: uq.withFollowing}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithAdminFollowing(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowing(opts...)
+	w := &userQueryWrapper{q: uq.withFollowing}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFreeFollowing(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowing(opts...)
+	w := &userQueryWrapper{q: uq.withFollowing}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithOldFollowing(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowing(opts...)
+	w := &userQueryWrapper{q: uq.withFollowing}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFooFollowing(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithFollowing(opts...)
+	w := &userQueryWrapper{q: uq.withFollowing}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithTeam tells the query-builder to eager-load the nodes that are connected to
@@ -609,7 +1238,18 @@ func (uq *UserQuery) WithTeam(opts ...func(*PetQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withTeam = query
+	w := &petQueryWrapper{q: uq.withTeam}
+	scope := &petScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithOldTeam(opts ...func(*PetQuery)) *UserQuery {
+	query := uq.WithTeam(opts...)
+	w := &petQueryWrapper{q: uq.withTeam}
+	scope := &petScoper.OldScope
+	scope.query(w)
+	return query
 }
 
 // WithSpouse tells the query-builder to eager-load the nodes that are connected to
@@ -620,7 +1260,42 @@ func (uq *UserQuery) WithSpouse(opts ...func(*UserQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withSpouse = query
+	w := &userQueryWrapper{q: uq.withSpouse}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithAdminSpouse(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithSpouse(opts...)
+	w := &userQueryWrapper{q: uq.withSpouse}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFreeSpouse(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithSpouse(opts...)
+	w := &userQueryWrapper{q: uq.withSpouse}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithOldSpouse(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithSpouse(opts...)
+	w := &userQueryWrapper{q: uq.withSpouse}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFooSpouse(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithSpouse(opts...)
+	w := &userQueryWrapper{q: uq.withSpouse}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithChildren tells the query-builder to eager-load the nodes that are connected to
@@ -631,7 +1306,42 @@ func (uq *UserQuery) WithChildren(opts ...func(*UserQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withChildren = query
+	w := &userQueryWrapper{q: uq.withChildren}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithAdminChildren(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithChildren(opts...)
+	w := &userQueryWrapper{q: uq.withChildren}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFreeChildren(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithChildren(opts...)
+	w := &userQueryWrapper{q: uq.withChildren}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithOldChildren(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithChildren(opts...)
+	w := &userQueryWrapper{q: uq.withChildren}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFooChildren(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithChildren(opts...)
+	w := &userQueryWrapper{q: uq.withChildren}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // WithParent tells the query-builder to eager-load the nodes that are connected to
@@ -642,7 +1352,42 @@ func (uq *UserQuery) WithParent(opts ...func(*UserQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withParent = query
+	w := &userQueryWrapper{q: uq.withParent}
+	scope := &userScoper.DefaultScope
+	scope.query(w)
 	return uq
+}
+
+func (uq *UserQuery) WithAdminParent(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithParent(opts...)
+	w := &userQueryWrapper{q: uq.withParent}
+	scope := &userScoper.AdminScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFreeParent(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithParent(opts...)
+	w := &userQueryWrapper{q: uq.withParent}
+	scope := &userScoper.FreeScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithOldParent(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithParent(opts...)
+	w := &userQueryWrapper{q: uq.withParent}
+	scope := &userScoper.OldScope
+	scope.query(w)
+	return query
+}
+
+func (uq *UserQuery) WithFooParent(opts ...func(*UserQuery)) *UserQuery {
+	query := uq.WithParent(opts...)
+	w := &userQueryWrapper{q: uq.withParent}
+	scope := &userScoper.FooScope
+	scope.query(w)
+	return query
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.

@@ -45,7 +45,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func initScopes() {
+	us := ent.UserScope()
+	us.SetAdminQueryFunction(func(c ent.UserFinder) { c.Where(user.RoleEQ(user.RoleAdmin)) })
+	us.SetFreeQueryFunction(func(c ent.UserFinder) { c.Where(user.RoleEQ(user.RoleFreeUser)) })
+	us.SetOldQueryFunction(func(c ent.UserFinder) { c.Where(user.AgeGT(100)) })
+	// skip user foo scope setup for tests
+	ps := ent.PetScope()
+	ps.SetOldQueryFunction(func(c ent.PetFinder) { c.Where(pet.AgeGT(20)) })
+	gs := ent.GroupScope()
+	gs.SetActiveQueryFunction(func(c ent.GroupFinder) { c.Where(group.Active(true)) })
+	gs.SetInactiveQueryFunction(func(c ent.GroupFinder) { c.Where(group.Active(false)) })
+}
+
 func TestSQLite(t *testing.T) {
+	initScopes()
 	client := enttest.Open(t, dialect.SQLite, "file:ent?mode=memory&cache=shared&_fk=1", opts)
 	defer client.Close()
 	for _, tt := range tests {
@@ -58,6 +72,7 @@ func TestSQLite(t *testing.T) {
 }
 
 func TestMySQL(t *testing.T) {
+	initScopes()
 	for version, port := range map[string]int{"56": 3306, "57": 3307, "8": 3308} {
 		addr := net.JoinHostPort("localhost", strconv.Itoa(port))
 		t.Run(version, func(t *testing.T) {
@@ -75,6 +90,7 @@ func TestMySQL(t *testing.T) {
 }
 
 func TestMaria(t *testing.T) {
+	initScopes()
 	for version, port := range map[string]int{"10.5": 4306, "10.2": 4307, "10.3": 4308} {
 		t.Run(version, func(t *testing.T) {
 			addr := net.JoinHostPort("localhost", strconv.Itoa(port))
@@ -92,6 +108,7 @@ func TestMaria(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
+	initScopes()
 	for version, port := range map[string]int{"10": 5430, "11": 5431, "12": 5432, "13": 5433, "14": 5434} {
 		t.Run(version, func(t *testing.T) {
 			client := enttest.Open(t, dialect.Postgres, fmt.Sprintf("host=localhost port=%d user=postgres dbname=test password=pass sslmode=disable", port), opts)
@@ -146,6 +163,7 @@ var (
 		Mutation,
 		CreateBulk,
 		ConstraintChecks,
+		Scope,
 	}
 )
 
@@ -1865,4 +1883,67 @@ func drop(t *testing.T, client *ent.Client) {
 	client.GroupInfo.Delete().ExecX(ctx)
 	client.FieldType.Delete().ExecX(ctx)
 	client.FileType.Delete().ExecX(ctx)
+}
+
+func Scope(t *testing.T, client *ent.Client) {
+	require := require.New(t)
+	ctx := context.Background()
+	young := client.User.Create().SetName("young").SetAge(20).SetRole(user.RoleUser).SaveX(ctx)
+	old := client.User.Create().SetName("old").SetAge(120).SetRole(user.RoleUser).SaveX(ctx)
+	admin := client.User.Create().SetName("admin").SetAge(20).SetRole(user.RoleAdmin).SaveX(ctx)
+	free := client.User.Create().SetName("free").SetAge(200).SetRole(user.RoleFreeUser).SaveX(ctx)
+	// client test
+	ids := client.User.Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{young.ID, old.ID, admin.ID, free.ID})
+	ids = client.User.Admin().Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID})
+	ids = client.User.Free().Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID})
+	ids = client.User.Old().Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID, old.ID})
+	ids = client.User.Foo().Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{young.ID, old.ID, admin.ID, free.ID})
+	// query edge from client test
+	young = young.Update().AddChildren(old, admin, free).SaveX(ctx)
+	ids = client.User.QueryOldChildren(young).IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID, old.ID})
+	ids = client.User.QueryAdminChildren(young).IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID})
+	ids = client.User.QueryFreeChildren(young).IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID})
+	ids = client.User.QueryFooChildren(young).IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID, old.ID, admin.ID})
+	// query edge from query test
+	ids = client.User.Query().Where(user.IDEQ(young.ID)).QueryOldChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID, old.ID})
+	ids = client.User.Query().Where(user.IDEQ(young.ID)).QueryAdminChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID})
+	ids = client.User.Query().Where(user.IDEQ(young.ID)).QueryFreeChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID})
+	ids = client.User.Query().Where(user.IDEQ(young.ID)).QueryFooChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{free.ID, old.ID, admin.ID})
+	// query from entity test
+	young.QueryChildren()
+	// default override test
+	us := ent.UserScope()
+	us.SetDefaultQueryFunction(func(c ent.UserFinder) { c.Where(user.RoleEQ(user.RoleAdmin)) })
+	ids = client.User.Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID})
+	ids = client.User.Old().Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{})
+	ids = client.User.QueryAdminChildren(young).IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID})
+	ids = young.QueryChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID})
+	// unscoped test
+	ids = client.User.Unscoped().Query().IDsX(ctx)
+	require.ElementsMatch(ids, []int{young.ID, old.ID, admin.ID, free.ID})
+	ids = client.User.QueryChildren(young).IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID})
+	ids = client.User.QueryUnscopedChildren(young).IDsX(ctx)
+	require.ElementsMatch(ids, []int{admin.ID, old.ID, free.ID})
+	ids = client.User.Unscoped().Query().Where(user.IDEQ(young.ID)).QueryUnscopedChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{old.ID, free.ID, admin.ID})
+	ids = young.QueryUnscopedChildren().IDsX(ctx)
+	require.ElementsMatch(ids, []int{old.ID, free.ID, admin.ID})
 }

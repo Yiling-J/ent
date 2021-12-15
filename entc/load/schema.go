@@ -26,6 +26,7 @@ type Schema struct {
 	Hooks       []*Position            `json:"hooks,omitempty"`
 	Policy      []*Position            `json:"policy,omitempty"`
 	Annotations map[string]interface{} `json:"annotations,omitempty"`
+	Scopes      []string               `json:"scopes,omitempty"`
 }
 
 // Position describes a position in the schema.
@@ -203,6 +204,7 @@ func MarshalSchema(schema ent.Interface) (b []byte, err error) {
 	if err := s.loadPolicy(schema); err != nil {
 		return nil, fmt.Errorf("schema %q: %w", s.Name, err)
 	}
+	s.Scopes = append(s.Scopes, schema.Scopes()...)
 	return json.Marshal(s)
 }
 
@@ -282,6 +284,7 @@ func (s *Schema) loadMixin(schema ent.Interface) error {
 		for _, at := range mx.Annotations() {
 			s.addAnnotation(at)
 		}
+		s.Scopes = append(s.Scopes, mx.Scopes()...)
 	}
 	return nil
 }

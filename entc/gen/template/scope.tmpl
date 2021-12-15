@@ -1,0 +1,97 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{ define "scope" }}
+
+{{ $pkg := base $.Config.Package }}
+{{ template "header" $ }}
+
+import (
+	"error"
+	"{{ $.Config.Package }}/predicate"
+)
+
+{{ range $n := $.Nodes }}
+{{ $nameLower := $n.Name | lower }}
+type {{ $n.Name }}Finder interface {
+	Where(ps ...predicate.{{ $n.Name }})
+}
+
+type {{ $nameLower }}Scope struct {
+	queryFunc func({{ $n.Name }}Finder)
+	unscoped bool
+}
+
+func (s *{{ $nameLower }}Scope) query(f {{ $n.Name }}Finder) {
+	if s.queryFunc != nil {
+		s.queryFunc(f)
+	}
+}
+
+func (s *{{ $nameLower }}Scope) Unscoped() bool {
+	if s == nil {
+		return false
+	}
+	return s.unscoped
+}
+
+type {{ $nameLower }}QueryWrapper struct {
+	q *{{ $n.Name }}Query
+}
+
+func (w *{{ $nameLower }}QueryWrapper) Where(ps ...predicate.{{ $n.Name }}) {
+	w.q.Where(ps...)
+}
+
+type {{ $nameLower }}UpdateQueryWrapper struct {
+	u *{{ $n.Name }}Mutation
+}
+
+func (w *{{ $nameLower }}UpdateQueryWrapper) Where(ps ...predicate.{{ $n.Name }}) {
+	w.u.Where(ps...)
+}
+
+type {{ $nameLower }}Scopes struct {
+	noneScope {{ $nameLower }}Scope
+	DefaultScope {{ $nameLower }}Scope
+	{{- range $s := $n.Scopes }}
+	{{ $scope := pascal $s }}
+	{{ $scope }}Scope {{ $nameLower }}Scope
+	{{- end }}
+}
+
+var {{ $nameLower }}Scoper = &{{ $nameLower }}Scopes{noneScope: {{ $nameLower }}Scope{unscoped: true}}
+
+type {{ $nameLower }}ScopeWrapper struct {
+	scope *{{ $nameLower }}Scopes
+}
+
+func (w *{{ $nameLower }}ScopeWrapper) SetDefaultQueryFunction(fn func(c {{ $n.Name }}Finder)) error {
+	if w.scope.DefaultScope.queryFunc == nil {
+		w.scope.DefaultScope.queryFunc = fn
+		return nil
+	}
+	return errors.New("scope query function already set")
+}
+
+{{ range $s := $n.Scopes }}
+{{ $scope := pascal $s }}
+func (w *{{ $nameLower }}ScopeWrapper) Set{{ $scope }}QueryFunction(fn func(c {{ $n.Name }}Finder)) error {
+	if w.scope.{{ $scope }}Scope.queryFunc == nil {
+		w.scope.{{ $scope }}Scope.queryFunc = fn
+		return nil
+	}
+	return errors.New("scope query function already set")
+}
+{{ end }}
+
+func {{ $n.Name }}Scope() {{ $nameLower }}ScopeWrapper {
+	return {{ $nameLower }}ScopeWrapper{scope: {{ $nameLower }}Scoper}
+}
+{{ end }}
+{{ end }}

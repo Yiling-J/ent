@@ -332,9 +332,23 @@ func (u *User) QueryCard() *CardQuery {
 	return (&UserClient{config: u.config}).QueryCard(u)
 }
 
+// QueryCard queries the "card" edge of the User entity without scope.
+func (u *User) QueryUnscopedCard() *CardQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedCard(u)
+}
+
 // QueryPets queries the "pets" edge of the User entity.
 func (u *User) QueryPets() *PetQuery {
 	return (&UserClient{config: u.config}).QueryPets(u)
+}
+
+// QueryPets queries the "pets" edge of the User entity without scope.
+func (u *User) QueryUnscopedPets() *PetQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedPets(u)
+}
+
+func (u *User) QueryOldPets() *PetQuery {
+	return (&UserClient{config: u.config}).QueryOldPets(u)
 }
 
 // QueryFiles queries the "files" edge of the User entity.
@@ -342,9 +356,27 @@ func (u *User) QueryFiles() *FileQuery {
 	return (&UserClient{config: u.config}).QueryFiles(u)
 }
 
+// QueryFiles queries the "files" edge of the User entity without scope.
+func (u *User) QueryUnscopedFiles() *FileQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedFiles(u)
+}
+
 // QueryGroups queries the "groups" edge of the User entity.
 func (u *User) QueryGroups() *GroupQuery {
 	return (&UserClient{config: u.config}).QueryGroups(u)
+}
+
+// QueryGroups queries the "groups" edge of the User entity without scope.
+func (u *User) QueryUnscopedGroups() *GroupQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedGroups(u)
+}
+
+func (u *User) QueryActiveGroups() *GroupQuery {
+	return (&UserClient{config: u.config}).QueryActiveGroups(u)
+}
+
+func (u *User) QueryInactiveGroups() *GroupQuery {
+	return (&UserClient{config: u.config}).QueryInactiveGroups(u)
 }
 
 // QueryFriends queries the "friends" edge of the User entity.
@@ -352,9 +384,51 @@ func (u *User) QueryFriends() *UserQuery {
 	return (&UserClient{config: u.config}).QueryFriends(u)
 }
 
+// QueryFriends queries the "friends" edge of the User entity without scope.
+func (u *User) QueryUnscopedFriends() *UserQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedFriends(u)
+}
+
+func (u *User) QueryAdminFriends() *UserQuery {
+	return (&UserClient{config: u.config}).QueryAdminFriends(u)
+}
+
+func (u *User) QueryFreeFriends() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFreeFriends(u)
+}
+
+func (u *User) QueryOldFriends() *UserQuery {
+	return (&UserClient{config: u.config}).QueryOldFriends(u)
+}
+
+func (u *User) QueryFooFriends() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFooFriends(u)
+}
+
 // QueryFollowers queries the "followers" edge of the User entity.
 func (u *User) QueryFollowers() *UserQuery {
 	return (&UserClient{config: u.config}).QueryFollowers(u)
+}
+
+// QueryFollowers queries the "followers" edge of the User entity without scope.
+func (u *User) QueryUnscopedFollowers() *UserQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedFollowers(u)
+}
+
+func (u *User) QueryAdminFollowers() *UserQuery {
+	return (&UserClient{config: u.config}).QueryAdminFollowers(u)
+}
+
+func (u *User) QueryFreeFollowers() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFreeFollowers(u)
+}
+
+func (u *User) QueryOldFollowers() *UserQuery {
+	return (&UserClient{config: u.config}).QueryOldFollowers(u)
+}
+
+func (u *User) QueryFooFollowers() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFooFollowers(u)
 }
 
 // QueryFollowing queries the "following" edge of the User entity.
@@ -362,9 +436,39 @@ func (u *User) QueryFollowing() *UserQuery {
 	return (&UserClient{config: u.config}).QueryFollowing(u)
 }
 
+// QueryFollowing queries the "following" edge of the User entity without scope.
+func (u *User) QueryUnscopedFollowing() *UserQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedFollowing(u)
+}
+
+func (u *User) QueryAdminFollowing() *UserQuery {
+	return (&UserClient{config: u.config}).QueryAdminFollowing(u)
+}
+
+func (u *User) QueryFreeFollowing() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFreeFollowing(u)
+}
+
+func (u *User) QueryOldFollowing() *UserQuery {
+	return (&UserClient{config: u.config}).QueryOldFollowing(u)
+}
+
+func (u *User) QueryFooFollowing() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFooFollowing(u)
+}
+
 // QueryTeam queries the "team" edge of the User entity.
 func (u *User) QueryTeam() *PetQuery {
 	return (&UserClient{config: u.config}).QueryTeam(u)
+}
+
+// QueryTeam queries the "team" edge of the User entity without scope.
+func (u *User) QueryUnscopedTeam() *PetQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedTeam(u)
+}
+
+func (u *User) QueryOldTeam() *PetQuery {
+	return (&UserClient{config: u.config}).QueryOldTeam(u)
 }
 
 // QuerySpouse queries the "spouse" edge of the User entity.
@@ -372,14 +476,77 @@ func (u *User) QuerySpouse() *UserQuery {
 	return (&UserClient{config: u.config}).QuerySpouse(u)
 }
 
+// QuerySpouse queries the "spouse" edge of the User entity without scope.
+func (u *User) QueryUnscopedSpouse() *UserQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedSpouse(u)
+}
+
+func (u *User) QueryAdminSpouse() *UserQuery {
+	return (&UserClient{config: u.config}).QueryAdminSpouse(u)
+}
+
+func (u *User) QueryFreeSpouse() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFreeSpouse(u)
+}
+
+func (u *User) QueryOldSpouse() *UserQuery {
+	return (&UserClient{config: u.config}).QueryOldSpouse(u)
+}
+
+func (u *User) QueryFooSpouse() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFooSpouse(u)
+}
+
 // QueryChildren queries the "children" edge of the User entity.
 func (u *User) QueryChildren() *UserQuery {
 	return (&UserClient{config: u.config}).QueryChildren(u)
 }
 
+// QueryChildren queries the "children" edge of the User entity without scope.
+func (u *User) QueryUnscopedChildren() *UserQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedChildren(u)
+}
+
+func (u *User) QueryAdminChildren() *UserQuery {
+	return (&UserClient{config: u.config}).QueryAdminChildren(u)
+}
+
+func (u *User) QueryFreeChildren() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFreeChildren(u)
+}
+
+func (u *User) QueryOldChildren() *UserQuery {
+	return (&UserClient{config: u.config}).QueryOldChildren(u)
+}
+
+func (u *User) QueryFooChildren() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFooChildren(u)
+}
+
 // QueryParent queries the "parent" edge of the User entity.
 func (u *User) QueryParent() *UserQuery {
 	return (&UserClient{config: u.config}).QueryParent(u)
+}
+
+// QueryParent queries the "parent" edge of the User entity without scope.
+func (u *User) QueryUnscopedParent() *UserQuery {
+	return (&UserClient{config: u.config}).QueryUnscopedParent(u)
+}
+
+func (u *User) QueryAdminParent() *UserQuery {
+	return (&UserClient{config: u.config}).QueryAdminParent(u)
+}
+
+func (u *User) QueryFreeParent() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFreeParent(u)
+}
+
+func (u *User) QueryOldParent() *UserQuery {
+	return (&UserClient{config: u.config}).QueryOldParent(u)
+}
+
+func (u *User) QueryFooParent() *UserQuery {
+	return (&UserClient{config: u.config}).QueryFooParent(u)
 }
 
 // Update returns a builder for updating this User.
